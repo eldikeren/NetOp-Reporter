@@ -49,7 +49,41 @@ function convertToLocalTime(utcTimestamp, timezone) {
   if (!utcTimestamp || !timezone) return null;
   
   try {
-    const localTime = DateTime.fromISO(utcTimestamp, { zone: 'utc' }).setZone(timezone);
+    // Handle different timestamp formats
+    let localTime;
+    
+    // Check if it's already in ISO format (contains T or Z)
+    if (utcTimestamp.includes('T') || utcTimestamp.includes('Z')) {
+      localTime = DateTime.fromISO(utcTimestamp, { zone: 'utc' }).setZone(timezone);
+    } else if (utcTimestamp.includes(' ')) {
+      // Handle MM/DD/YYYY HH:mm format
+      const [datePart, timePart] = utcTimestamp.split(' ');
+      const parts = datePart.split('/');
+      if (parts.length === 3) {
+        const month = parts[0].padStart(2, '0');
+        const day = parts[1].padStart(2, '0');
+        const year = parts[2];
+        const isoString = `${year}-${month}-${day}T${timePart}:00.000Z`;
+        localTime = DateTime.fromISO(isoString, { zone: 'utc' }).setZone(timezone);
+      } else {
+        console.error(`Unsupported timestamp format: ${utcTimestamp}`);
+        return null;
+      }
+    } else {
+      // Handle MM/DD/YYYY format - convert to ISO first
+      const parts = utcTimestamp.split('/');
+      if (parts.length === 3) {
+        const month = parts[0].padStart(2, '0');
+        const day = parts[1].padStart(2, '0');
+        const year = parts[2];
+        const isoString = `${year}-${month}-${day}T00:00:00.000Z`;
+        localTime = DateTime.fromISO(isoString, { zone: 'utc' }).setZone(timezone);
+      } else {
+        console.error(`Unsupported timestamp format: ${utcTimestamp}`);
+        return null;
+      }
+    }
+    
     return {
       localTime: localTime.toFormat('MM/dd/yyyy HH:mm'),
       timezone: timezone,

@@ -1,6 +1,10 @@
 // Load environment variables from .env file
 require('dotenv').config();
 
+// Ensure cache directory exists
+const { ensureCacheDirectory } = require('./ensureCacheDir');
+ensureCacheDirectory();
+
 // Validate required API keys
 if (!process.env.OPENAI_API_KEY) {
   console.error('❌ OPENAI_API_KEY is required in .env file');
@@ -222,9 +226,101 @@ function chunkText(text, maxChunkSize = MAX_CHARS) {
   return chunks;
 }
 
-// Function to analyze individual chunks
-async function analyzeChunk(chunkText, chunkIndex, totalChunks, timezone) {
-      const prompt = `Analyze this PART ${chunkIndex + 1} of ${totalChunks} of a network infrastructure report and extract ALL network issues and events.
+  // Function to generate prompt based on customer type
+  function generateAnalysisPrompt(chunkText, chunkIndex, totalChunks, timezone, isSignatureAviation = false) {
+    const slaInstruction = isSignatureAviation 
+      ? `4. CRITICAL: For Service Performance events, use "application" as the generic term since SLA tables are not available. Format: "Site experienced performance issues with application"`
+      : `4. CRITICAL: For Service Performance events, correlate with SLA data if available. Look for SLA tables and include the specific application name (e.g., "Google", "Office 365", "Salesforce") in the summary_line. Format: "Site experienced performance issues with [APPLICATION_NAME]"
+   - Match Service Performance events with SLA table data by timestamp and occurrence
+   - Extract the specific application name from the SLA column
+   - Include application name in both summary_line and application_name field
+   - If no SLA table is found, use "application" as the generic term
+   - ONLY include Service Performance events if they actually appear in the PDF content`;
+
+    return `Analyze this PART ${chunkIndex + 1} of ${totalChunks} of a network infrastructure report and extract ALL network issues and events.
+
+REPORT CONTENT (PART ${chunkIndex + 1}):
+${chunkText}
+
+INSTRUCTIONS:
+1. Extract ALL tables and categories from this part of the report - DO NOT MISS ANY TABLES
+2. For each category, identify EXACTLY the top 3 most critical events/issues (no more, no less)
+3. ONLY extract categories that actually appear as tables or sections in this PDF part. Do NOT create categories that don't exist in the content. Common categories include: Interface Down Events, Device Availability, VPN Tunnel Down, Site Unreachable, Service Performance, WAN Utilization, Connected Clients, Wi-Fi Issues, Port Errors, SLA Profiles, etc. (Note: Network Utilization and WAN Utilization are the same category - use WAN Utilization only)
+
+${slaInstruction}
+
+5. CRITICAL: For Wi-Fi Issues, you MUST extract:
+   - Error type (association, authentication, DHCP, roaming, etc.)
+   - Number of errors (not occurrences - these are separate metrics)
+   - Number of impacted clients
+   - Format: "Site AP experienced [ERROR_TYPE] errors affecting [CLIENT_COUNT] clients"
+   - Include error_type, error_count, and impacted_clients fields
+   - ONLY include Wi-Fi Issues if they actually appear in the PDF content
+
+6. CRITICAL: For Port Errors, you MUST extract:
+   - Error rate percentage (input/output traffic errors)
+   - Type of errors (CRC, alignment, runts, giants, etc.)
+   - Format: "Site interface experienced [ERROR_RATE]% error rate ([ERROR_TYPE] errors)"
+   - Include error_rate_percentage, error_type, and input_output_direction fields
+   - ONLY include Port Errors if they actually appear in the PDF content
+
+7. CRITICAL: For WAN Utilization events, correlate with Network Utilization data. Include utilization percentage and affected services. Format: "Site experienced WAN utilization reaching [PERCENTAGE]% affecting [SERVICES]"
+   - ONLY include WAN Utilization if it actually appears in the PDF content
+
+8. For each event, provide:
+   - Site name
+   - Device name (if applicable)
+   - Interface name (if applicable)
+   - Application name (for Service Performance events, from SLA data)
+   - Number of occurrences (total_occurrences)
+   - Average duration in minutes (avg_duration_minutes)
+   - Severity (critical_issue, major_issue, minor_issue)
+   - Business hours impact (YES/NO) - ONLY set to YES if there's a specific timestamp with time (HH:MM) showing the event occurred between 09:00-18:00. If only date is available without time (e.g., "08/30/2025" without time), set to NO. If timestamp shows time outside 09:00-18:00, set to NO.
+   - Last occurrence date with time (last_occurrence) - include time if available
+   - Trend (worsening_trend, improving_trend, stable_trend)
+   - For Wi-Fi events: error_type, error_count, impacted_clients
+   - Summary line should include: site, device/interface, occurrences, duration, and application name if applicable
+
+8. Business hours are 09:00-18:00 local time
+9. All timestamps are in UTC - convert to ${timezone} timezone
+10. Provide comprehensive business hours analysis
+11. Include specific recommendations
+
+OUTPUT FORMAT (JSON):
+{
+  "categories": [
+    {
+      "category_name": "Category Name",
+      "findings": [
+        {
+          "summary_line": "Brief description of the issue",
+          "severity": "critical_issue|major_issue|minor_issue",
+          "trend": "worsening_trend|improving_trend|stable_trend",
+          "last_occurrence": "MM/DD/YYYY",
+          "avg_duration_minutes": number,
+          "total_occurrences": number,
+          "business_hours_impact": "YES|NO",
+          "site_name": "Site Name",
+          "device_name": "Device Name",
+          "interface_name": "Interface Name"
+        }
+      ]
+    }
+  ],
+  "business_hours_events_list": [
+    {
+      "event_description": "Description",
+      "business_impact": "Impact description",
+      "occurrence_time": "MM/DD/YYYY HH:MM",
+      "duration_minutes": number,
+      "severity": "severity_level"
+    }
+  ]
+}
+
+IMPORTANT: Extract ALL tables and ALL events from this part. Do not skip any categories or events. ONLY include categories that actually exist in the PDF content.`;
+
+    return `Analyze this PART ${chunkIndex + 1} of ${totalChunks} of a network infrastructure report and extract ALL network issues and events.
 
 REPORT CONTENT (PART ${chunkIndex + 1}):
 ${chunkText}
@@ -234,10 +330,7 @@ INSTRUCTIONS:
 2. For each category, identify EXACTLY the top 3 most critical events/issues (no more, no less)
 3. Include ALL categories found: Interface Down Events, Device Availability, VPN Tunnel Down, Site Unreachable, Service Performance, WAN Utilization, Connected Clients, Wi-Fi Issues, Port Errors, SLA Profiles, etc. (Note: Network Utilization and WAN Utilization are the same category - use WAN Utilization only)
 
-4. CRITICAL: For Service Performance events, you MUST correlate with SLA data. Look for SLA tables and include the specific application name (e.g., "Google", "Office 365", "Salesforce") in the summary_line. Format: "Site experienced performance issues with [APPLICATION_NAME]"
-   - Match Service Performance events with SLA table data by timestamp and occurrence
-   - Extract the specific application name from the SLA column
-   - Include application name in both summary_line and application_name field
+${slaInstruction}
 
 5. CRITICAL: For Wi-Fi Issues, you MUST extract:
    - Error type (association, authentication, DHCP, roaming, etc.)
@@ -306,6 +399,11 @@ OUTPUT FORMAT (JSON):
 }
 
 IMPORTANT: Extract ALL tables and ALL events from this part. Do not skip any categories or events.`;
+  }
+
+  // Function to analyze individual chunks
+  async function analyzeChunk(chunkText, chunkIndex, totalChunks, timezone, isSignatureAviation) {
+    const prompt = generateAnalysisPrompt(chunkText, chunkIndex, totalChunks, timezone, isSignatureAviation);
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o",
@@ -419,7 +517,7 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
         const chunk = chunks[chunkIndex];
         console.log(`📄 Processing chunk ${chunkIndex + 1}/${chunks.length}...`);
         
-        const chunkAnalysis = await analyzeChunk(chunk, chunkIndex, chunks.length, timezone);
+        const chunkAnalysis = await analyzeChunk(chunk, chunkIndex, chunks.length, timezone, isSignatureAviation);
         
         if (chunkAnalysis.categories) {
           allCategories.push(...chunkAnalysis.categories);

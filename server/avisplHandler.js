@@ -16,6 +16,15 @@ const CITY_TIMEZONE_MAP = {
   'mexico city': 'America/Mexico_City',
   'sao paulo': 'America/Sao_Paulo',
   'buenos aires': 'America/Argentina/Buenos_Aires',
+  'phoenix': 'America/Phoenix',
+  'ft lauderdale': 'America/New_York',
+  'jacksonville': 'America/New_York',
+  'pittsburgh': 'America/New_York',
+  'houston': 'America/Chicago',
+  'detroit': 'America/New_York',
+  'seattle': 'America/Los_Angeles',
+  'boston': 'America/New_York',
+  'dublin': 'Europe/Dublin',
   
   // Europe
   'london': 'Europe/London',
@@ -27,6 +36,7 @@ const CITY_TIMEZONE_MAP = {
   'zurich': 'Europe/Zurich',
   'stockholm': 'Europe/Stockholm',
   'moscow': 'Europe/Moscow',
+  'frankfurt': 'Europe/Berlin',
   
   // Asia Pacific
   'tokyo': 'Asia/Tokyo',
@@ -60,20 +70,64 @@ function extractCityFromSiteName(siteName) {
   return null;
 }
 
-// Check if timestamp is during business hours in local timezone
-function isBusinessHoursAviSpl(utcTimestamp, cityTimezone, businessWindow = { start: 9, end: 18 }) {
-  if (!utcTimestamp || !cityTimezone) return false;
+// Convert UTC timestamp to local time (robust parsing)
+function convertToLocalTimeAviSpl(utcTimestamp, timezone) {
+  if (!utcTimestamp || !timezone) return null;
   
   try {
-    const localTime = DateTime.fromISO(utcTimestamp, { zone: 'utc' }).setZone(cityTimezone);
-    const isWeekday = localTime.weekday >= 1 && localTime.weekday <= 5;
-    const hour = localTime.hour + localTime.minute / 60;
+    // Handle different timestamp formats
+    let localTime;
     
-    return isWeekday && hour >= businessWindow.start && hour < businessWindow.end;
+    // Check if it's already in ISO format (contains T or Z)
+    if (utcTimestamp.includes('T') || utcTimestamp.includes('Z')) {
+      localTime = DateTime.fromISO(utcTimestamp, { zone: 'utc' }).setZone(timezone);
+    } else if (utcTimestamp.includes(' ')) {
+      // Handle MM/DD/YYYY HH:mm format
+      const [datePart, timePart] = utcTimestamp.split(' ');
+      const parts = datePart.split('/');
+      if (parts.length === 3) {
+        const month = parts[0].padStart(2, '0');
+        const day = parts[1].padStart(2, '0');
+        const year = parts[2];
+        const isoString = `${year}-${month}-${day}T${timePart}:00.000Z`;
+        localTime = DateTime.fromISO(isoString, { zone: 'utc' }).setZone(timezone);
+      } else {
+        console.error(`Unsupported timestamp format: ${utcTimestamp}`);
+        return null;
+      }
+    } else {
+      // Handle MM/DD/YYYY format - convert to ISO first
+      const parts = utcTimestamp.split('/');
+      if (parts.length === 3) {
+        const month = parts[0].padStart(2, '0');
+        const day = parts[1].padStart(2, '0');
+        const year = parts[2];
+        const isoString = `${year}-${month}-${day}T00:00:00.000Z`;
+        localTime = DateTime.fromISO(isoString, { zone: 'utc' }).setZone(timezone);
+      } else {
+        console.error(`Unsupported timestamp format: ${utcTimestamp}`);
+        return null;
+      }
+    }
+    
+    return {
+      localTime: localTime.toFormat('MM/dd/yyyy HH:mm'),
+      timezone: timezone,
+      isBusinessHours: isBusinessHoursAviSpl(localTime)
+    };
   } catch (error) {
-    console.error('Error converting timezone for AVI-SPL:', error);
-    return false;
+    console.error(`Error converting time for ${timezone}:`, error);
+    return null;
   }
+}
+
+// Check if time is during business hours (09:00-18:00, Mon-Fri)
+function isBusinessHoursAviSpl(localTime, businessWindow = { start: 9, end: 18 }) {
+  if (!localTime) return false;
+  
+  const isWeekday = localTime.weekday >= 1 && localTime.weekday <= 5;
+  const hour = localTime.hour + localTime.minute / 60;
+  return isWeekday && hour >= businessWindow.start && hour < businessWindow.end;
 }
 
 // Process AVI-SPL events with city-based timezone conversion
@@ -90,21 +144,21 @@ function processAviSplEvents(events) {
       
       // Check business hours impact if timestamp exists
       if (event.last_occurrence) {
-        const isBusinessHours = isBusinessHoursAviSpl(event.last_occurrence, cityInfo.timezone);
-        event.business_hours_impact = isBusinessHours ? 'YES' : 'NO';
+        console.log(`🕐 Converting UTC time "${event.last_occurrence}" to ${cityInfo.timezone} for ${cityInfo.city}`);
+        const timeConversion = convertToLocalTimeAviSpl(event.last_occurrence, cityInfo.timezone);
         
-        // Add local time string and update last_occurrence
-        try {
-          console.log(`🕐 Converting UTC time "${event.last_occurrence}" to ${cityInfo.timezone} for ${cityInfo.city}`);
-          const localTime = DateTime.fromISO(event.last_occurrence, { zone: 'utc' }).setZone(cityInfo.timezone);
+        if (timeConversion) {
           const originalTime = event.last_occurrence;
-          event.local_time = localTime.toFormat('MM/dd/yyyy HH:mm');
-          event.local_timezone_name = localTime.zoneName;
+          event.local_time = timeConversion.localTime;
+          event.local_timezone_name = timeConversion.timezone;
+          event.business_hours_impact = timeConversion.isBusinessHours ? 'YES' : 'NO';
+          
           // Update last_occurrence to show local time for display
-          event.last_occurrence = localTime.toFormat('MM/dd/yyyy HH:mm');
-          console.log(`✅ Time converted: ${originalTime} UTC → ${event.last_occurrence} ${cityInfo.timezone}`);
-        } catch (error) {
-          console.error('Error formatting local time:', error);
+          event.last_occurrence = timeConversion.localTime;
+          console.log(`✅ Time converted: ${originalTime} UTC → ${timeConversion.localTime} ${cityInfo.timezone}`);
+        } else {
+          console.log(`⚠️ Failed to convert time for ${event.site_name}`);
+          event.business_hours_impact = 'NO';
         }
       }
       
