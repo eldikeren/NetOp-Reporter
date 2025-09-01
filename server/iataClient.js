@@ -1,5 +1,5 @@
 const { iataApi } = require('./axiosIata');
-const { iataCache } = require('./iataCache');
+const { devCache } = require('./devCache');
 const { limiter } = require('./limiter');
 
 /**
@@ -54,8 +54,8 @@ async function iataLookup(raw) {
   }
 
   try {
-    // 1) check file-backed cache
-    const cached = await iataCache.get(code);
+    // 1) check in-memory cache
+    const cached = await devCache.get(code);
     if (cached) {
       console.log(`✅ IATA ${code} found in cache`);
       return cached;
@@ -66,7 +66,7 @@ async function iataLookup(raw) {
     const info = await limiter.schedule(() => fetchAirport(code));
     
     if (info) {
-      await iataCache.set(code, info); // persist with TTL
+      await devCache.set(code, info); // store in memory only
       console.log(`✅ IATA ${code} cached: ${info.city}, ${info.country} (${info.timezone})`);
     } else {
       console.log(`❌ IATA ${code} not found in API`);

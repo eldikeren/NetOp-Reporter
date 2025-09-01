@@ -3,6 +3,7 @@
   "ext": "js,json",
   "ignore": [
     "cache/**",
+    "cache/*",
     "uploads/**",
     "reports/**",
     "public/**",
@@ -16,10 +17,11 @@
     "debug-*.js",
     "*.cache",
     "*.log",
+    "iata.json",
     "iataCache.json",
     "airports.csv"
   ],
-  "delay": "200ms",
+  "delay": "500ms",
   "env": {
     "NODE_ENV": "development"
   }

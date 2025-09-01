@@ -318,7 +318,7 @@ OUTPUT FORMAT (JSON):
   ]
 }
 
-IMPORTANT: Extract ALL tables and ALL events from this part. Do not skip any categories or events. ONLY include categories that actually exist in the PDF content.`;
+IMPORTANT: Extract ALL tables and ALL events from this part. Do not skip any categories or events. ONLY include categories that actually exist in the PDF content. EXCLUDE "Device Alerting" category completely - do not process it even if found in the PDF.`;
 
     return `Analyze this PART ${chunkIndex + 1} of ${totalChunks} of a network infrastructure report and extract ALL network issues and events.
 
@@ -328,7 +328,7 @@ ${chunkText}
 INSTRUCTIONS:
 1. Extract ALL tables and categories from this part of the report - DO NOT MISS ANY TABLES
 2. For each category, identify EXACTLY the top 3 most critical events/issues (no more, no less)
-3. Include ALL categories found: Interface Down Events, Device Availability, VPN Tunnel Down, Site Unreachable, Service Performance, WAN Utilization, Connected Clients, Wi-Fi Issues, Port Errors, SLA Profiles, etc. (Note: Network Utilization and WAN Utilization are the same category - use WAN Utilization only)
+3. Include ALL categories found: Interface Down Events, Device Availability, VPN Tunnel Down, Site Unreachable, Service Performance, WAN Utilization, Connected Clients, Wi-Fi Issues, Port Errors, SLA Profiles, etc. (Note: Network Utilization and WAN Utilization are the same category - use WAN Utilization only). IMPORTANT: DO NOT include "Device Alerting" category - ignore it completely if found in the PDF.
 
 ${slaInstruction}
 
@@ -398,7 +398,7 @@ OUTPUT FORMAT (JSON):
   ]
 }
 
-IMPORTANT: Extract ALL tables and ALL events from this part. Do not skip any categories or events.`;
+IMPORTANT: Extract ALL tables and ALL events from this part. Do not skip any categories or events. EXCLUDE "Device Alerting" category completely - do not process it even if found in the PDF.`;
   }
 
   // Function to analyze individual chunks
@@ -636,6 +636,16 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
       }
       
       combinedCategories.push(...categoryMap.values());
+      
+      // Filter out "Device Alerting" category from all reports
+      const filteredCategories = combinedCategories.filter(category => 
+        !category.category_name.toLowerCase().includes('device alerting') &&
+        !category.category_name.toLowerCase().includes('alerting')
+      );
+      
+      // Replace combinedCategories with filtered version
+      combinedCategories.length = 0;
+      combinedCategories.push(...filteredCategories);
       
       // AVI-SPL processing will be applied to all events after chunk aggregation
       
@@ -893,7 +903,7 @@ ${analysisText}
 INSTRUCTIONS:
 1. Extract ALL tables and categories from the report - DO NOT MISS ANY TABLES
 2. For each category, identify EXACTLY the top 3 most critical events/issues (no more, no less)
-3. Include ALL categories found: Interface Down Events, Device Availability, VPN Tunnel Down, Site Unreachable, Service Performance, WAN Utilization, Connected Clients, Wi-Fi Issues, Port Errors, SLA Profiles, etc. (Note: Network Utilization and WAN Utilization are the same category - use WAN Utilization only)
+3. Include ALL categories found: Interface Down Events, Device Availability, VPN Tunnel Down, Site Unreachable, Service Performance, WAN Utilization, Connected Clients, Wi-Fi Issues, Port Errors, SLA Profiles, etc. (Note: Network Utilization and WAN Utilization are the same category - use WAN Utilization only). IMPORTANT: DO NOT include "Device Alerting" category - ignore it completely if found in the PDF.
 
 4. CRITICAL: For Service Performance events, you MUST correlate with SLA data. Look for SLA tables and include the specific application name (e.g., "Google", "Office 365", "Salesforce") in the summary_line. Format: "Site experienced performance issues with [APPLICATION_NAME]"
    - Match Service Performance events with SLA table data by timestamp and occurrence
