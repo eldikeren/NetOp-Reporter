@@ -499,15 +499,15 @@ export const generateEmailBodyHTML = (insight: any, fullReportUrl?: string, reci
                                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
                                         <div style="text-align: center;">
                                             <div style="font-size: 24px; font-weight: bold; color: #dc2626;">
-                                                ${analysis_result.business_hours_analysis.business_hours_percentage || 0}%
+                                                ${analysis_result.business_hours_analysis.business_impact_events || 0}
                                             </div>
-                                            <div style="font-size: 12px; color: #dc2626;">During Business Hours</div>
+                                            <div style="font-size: 12px; color: #dc2626;">Business Hours Events</div>
                                         </div>
                                         <div style="text-align: center;">
                                             <div style="font-size: 24px; font-weight: bold; color: #dc2626;">
-                                                ${analysis_result.business_hours_analysis.business_hours_events || 0}
+                                                ${analysis_result.business_hours_analysis.no_business_hours_events || 0}
                                             </div>
-                                            <div style="font-size: 12px; color: #dc2626;">Business Hours Events</div>
+                                            <div style="font-size: 12px; color: #dc2626;">Non-Business Hours Events</div>
                                         </div>
                                         <div style="text-align: center;">
                                             <div style="font-size: 24px; font-weight: bold; color: #dc2626;">
@@ -517,12 +517,12 @@ export const generateEmailBodyHTML = (insight: any, fullReportUrl?: string, reci
                                         </div>
                                     </div>
                                     
-                                    ${analysis_result.business_hours_analysis.business_hours_events_list && 
-                                      analysis_result.business_hours_analysis.business_hours_events_list.length > 0 ? `
+                                    ${analysis_result.business_hours_analysis.business_impact_events_list && 
+                                      analysis_result.business_hours_analysis.business_impact_events_list.length > 0 ? `
                                     <div>
                                         <h4 style="font-size: 16px; font-weight: 600; color: #dc2626; margin-bottom: 12px;">Sample Business Hours Events:</h4>
                                         <div style="space-y: 8px;">
-                                            ${analysis_result.business_hours_analysis.business_hours_events_list.slice(0, 3).map((event: any) => `
+                                            ${analysis_result.business_hours_analysis.business_impact_events_list.slice(0, 3).map((event: any) => `
                                                 <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px;">
                                                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
                                                         <h5 style="font-weight: 500; color: #111827; font-size: 14px;">${event.event_description}</h5>
@@ -535,9 +535,9 @@ export const generateEmailBodyHTML = (insight: any, fullReportUrl?: string, reci
                                                     </div>
                                                 </div>
                                             `).join('')}
-                                            ${analysis_result.business_hours_analysis.business_hours_events_list.length > 3 ? `
+                                            ${analysis_result.business_hours_analysis.business_impact_events_list.length > 3 ? `
                                                 <div style="text-align: center; font-size: 12px; color: #dc2626; font-weight: 500;">
-                                                    + ${analysis_result.business_hours_analysis.business_hours_events_list.length - 3} more business hours events (see full report for complete details)
+                                                    + ${analysis_result.business_hours_analysis.business_impact_events_list.length - 3} more business hours events (see full report for complete details)
                                                 </div>
                                             ` : ''}
                                         </div>

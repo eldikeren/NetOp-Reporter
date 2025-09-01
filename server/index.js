@@ -673,28 +673,45 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
       
       console.log(`📊 Total events found: ${allEventsFromChunks.length}, Timestamped events: ${allTimestampedEvents.length}, Using: ${totalAllEvents}`);
       
-      // Count events that actually have business_hours_impact = "YES" from ALL events
-      const businessHoursEvents = allEventsFromChunks.filter(f => f.business_hours_impact === "YES").length;
+      // Debug: Show business hours breakdown
+      const businessHoursBreakdown = allEventsFromChunks.reduce((acc, event) => {
+        const impact = event.business_hours_impact || 'NO';
+        acc[impact] = (acc[impact] || 0) + 1;
+        return acc;
+      }, {});
+      console.log(`🔍 Business hours breakdown:`, businessHoursBreakdown);
       
-      const businessHoursPercentage = totalAllEvents > 0 ? Math.round((businessHoursEvents / totalAllEvents) * 100) : 0;
+      // For AVI-SPL reports, use the AVI-SPL analysis results
+      let businessHoursEvents = 0;
+      let businessHoursEventsList = [];
+      let businessHoursPercentage = 0;
       
-      // Create business hours events list from ALL events with YES flag
-      const businessHoursEventsList = allEventsFromChunks
-        .filter(f => f.business_hours_impact === "YES")
-        .map(finding => ({
-          event_description: finding.summary_line,
-          business_impact: `This event affected business operations during work hours`,
-          occurrence_time: finding.last_occurrence,
-          duration_minutes: finding.avg_duration_minutes || 0,
-          severity: finding.severity
-        }));
+      if (isAviSpl) {
+        // AVI-SPL analysis will be applied later and will override these values
+        businessHoursEvents = 0;
+        businessHoursEventsList = [];
+        businessHoursPercentage = 0;
+      } else {
+        // For non-AVI-SPL reports, use the standard calculation
+        businessHoursEvents = allEventsFromChunks.filter(f => f.business_hours_impact === "YES").length;
+        businessHoursPercentage = totalAllEvents > 0 ? Math.round((businessHoursEvents / totalAllEvents) * 100) : 0;
+        businessHoursEventsList = allEventsFromChunks
+          .filter(f => f.business_hours_impact === "YES")
+          .map(finding => ({
+            event_description: finding.summary_line,
+            business_impact: `This event affected business operations during work hours`,
+            occurrence_time: finding.last_occurrence,
+            duration_minutes: finding.avg_duration_minutes || 0,
+            severity: finding.severity
+          }));
+      }
       
       // Add Signature Aviation specific content
       let businessHoursAnalysis = {
-        peak_incident_hours: '09:00-17:00',
-        no_change_window: '02:00-04:00',
-        backup_window: '01:00-03:00',
-        total_events: totalAllEvents,
+          peak_incident_hours: '09:00-17:00',
+          no_change_window: '02:00-04:00',
+          backup_window: '01:00-03:00',
+          total_events: totalAllEvents,
         business_impact_events: businessHoursEvents,
         no_business_hours_events: totalAllEvents - businessHoursEvents,
         business_impact_percentage: businessHoursPercentage,
@@ -744,12 +761,13 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
         
         businessHoursAnalysis.avispl_note = aviSplAnalysis.avispl_note || "**Note: For AVI-SPL reports, all timestamps have been automatically converted from UTC to the corresponding local time zones based on site names.**";
         businessHoursAnalysis.avispl_analysis = aviSplAnalysis;
-        // Update AVI-SPL analysis to use new terminology
+        // Use AVI-SPL analysis results for the main business hours analysis
         if (businessHoursAnalysis.avispl_analysis) {
-          businessHoursAnalysis.avispl_analysis.business_impact_events = businessHoursAnalysis.avispl_analysis.business_hours_events;
-          businessHoursAnalysis.avispl_analysis.no_business_hours_events = businessHoursAnalysis.avispl_analysis.total_events - businessHoursAnalysis.avispl_analysis.business_hours_events;
-          businessHoursAnalysis.avispl_analysis.business_impact_percentage = businessHoursAnalysis.avispl_analysis.business_hours_percentage;
-          businessHoursAnalysis.avispl_analysis.business_impact_events_list = businessHoursAnalysis.avispl_analysis.business_hours_events_list;
+          businessHoursAnalysis.total_events = aviSplAnalysis.total_events;
+          businessHoursAnalysis.business_impact_events = aviSplAnalysis.business_impact_events;
+          businessHoursAnalysis.no_business_hours_events = aviSplAnalysis.no_business_hours_events;
+          businessHoursAnalysis.business_impact_percentage = aviSplAnalysis.business_impact_percentage;
+          businessHoursAnalysis.business_impact_events_list = aviSplAnalysis.business_impact_events_list;
         }
       }
       
@@ -776,7 +794,7 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
             humanized_intro: executiveSummary,
             customer_timezone: timezone
           },
-          categories: combinedCategories,
+        categories: combinedCategories,
                   // Generate specific recommendations based on actual findings
           recommendations: (() => {
             const recs = [];

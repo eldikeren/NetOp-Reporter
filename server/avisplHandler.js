@@ -91,7 +91,7 @@ function processAviSplEvents(events) {
           
           // Update last_occurrence to show local time for display
           event.last_occurrence = timeConversion.localTime;
-          console.log(`✅ Time converted: ${originalTime} UTC → ${timeConversion.localTime} ${cityInfo.timezone}`);
+          console.log(`✅ Time converted: ${originalTime} UTC → ${timeConversion.localTime} ${cityInfo.timezone} (Business hours: ${timeConversion.isBusinessHours ? 'YES' : 'NO'})`);
         } else {
           console.log(`⚠️ Failed to convert time for ${event.site_name}`);
           event.business_hours_impact = 'NO';
@@ -104,6 +104,12 @@ function processAviSplEvents(events) {
           event.site_name,
           `${event.site_name} **(${cityInfo.city.charAt(0).toUpperCase() + cityInfo.city.slice(1)})**`
         );
+      }
+    } else {
+      // For events without city match, still set business_hours_impact to 'NO' if they have timestamps
+      if (event.last_occurrence && event.last_occurrence.includes(':')) {
+        event.business_hours_impact = 'NO';
+        console.log(`⚠️ No city match for ${event.site_name}, setting business_hours_impact to NO`);
       }
     }
     
@@ -118,6 +124,9 @@ function processAviSplEvents(events) {
 function generateAviSplBusinessAnalysis(events) {
   const cityEvents = {};
   const businessHoursEvents = [];
+  
+  // Count ALL events with timestamps, not just those with geo_location
+  const eventsWithTimestamps = events.filter(event => event.last_occurrence && event.last_occurrence.includes(':'));
   
   events.forEach(event => {
     if (event.geo_location) {
@@ -138,7 +147,8 @@ function generateAviSplBusinessAnalysis(events) {
     }
   });
   
-  const totalEvents = events.length;
+  // Use events with timestamps for total count, not all events
+  const totalEvents = eventsWithTimestamps.length;
   const totalBusinessHoursEvents = businessHoursEvents.length;
   const businessHoursPercentage = totalEvents > 0 ? Math.round((totalBusinessHoursEvents / totalEvents) * 100) : 0;
   
