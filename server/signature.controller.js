@@ -3,6 +3,7 @@ const express = require('express');
 const { buildAirportIndex } = require('./airportsIndex');
 const { extractAirportsFromPdf } = require('./extractAirportsFromPdf');
 const { isBusinessHoursLocal, getLocalTimeString } = require('./businessHours');
+const { generateSignatureAviationReport } = require('./signatureKPI');
 
 const upload = multer();
 
@@ -149,6 +150,9 @@ module.exports = (app) => {
       const eventsFlagged = attachBHToEvents(events, AIRPORTS);
       const businessHoursAnalysis = createBusinessHoursAnalysis(eventsFlagged);
       
+      // Generate Signature Aviation KPI dashboard
+      const signatureReport = generateSignatureAviationReport(eventsFlagged, airports);
+      
       return res.json({
         customer: 'Signature Aviation',
         generated_at: new Date().toISOString(),
@@ -164,7 +168,8 @@ module.exports = (app) => {
           coordinates: { lat: a.lat, lon: a.lon }
         })),
         events: eventsFlagged,
-        business_hours_analysis: businessHoursAnalysis
+        business_hours_analysis: businessHoursAnalysis,
+        signature_aviation_dashboard: signatureReport
       });
       
     } catch (e) {

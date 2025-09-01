@@ -222,7 +222,7 @@ ${chunkText}
 INSTRUCTIONS:
 1. Extract ALL tables and categories from this part of the report - DO NOT MISS ANY TABLES
 2. For each category, identify EXACTLY the top 3 most critical events/issues (no more, no less)
-3. Include ALL categories found: Interface Down Events, Device Availability, VPN Tunnel Down, Site Unreachable, Service Performance, WAN Utilization, Network Utilization, Connected Clients, Wi-Fi Issues, Port Errors, SLA Profiles, etc.
+3. Include ALL categories found: Interface Down Events, Device Availability, VPN Tunnel Down, Site Unreachable, Service Performance, WAN Utilization, Connected Clients, Wi-Fi Issues, Port Errors, SLA Profiles, etc. (Note: Network Utilization and WAN Utilization are the same category - use WAN Utilization only)
 
 4. CRITICAL: For Service Performance events, you MUST correlate with SLA data. Look for SLA tables and include the specific application name (e.g., "Google", "Office 365", "Salesforce") in the summary_line. Format: "Site experienced performance issues with [APPLICATION_NAME]"
    - Match Service Performance events with SLA table data by timestamp and occurrence
@@ -448,15 +448,25 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
           if (finding.device_name) parts.push(finding.device_name);
           if (finding.interface_name) parts.push(`interface ${finding.interface_name}`);
           
+          // Add description if available
+          if (finding.description) {
+            parts.push(finding.description);
+          }
+          
           // Special handling for different event types
           if (categoryName.toLowerCase().includes('wifi')) {
-            // Wi-Fi events should show error type, error count, and client impact
+            // Wi-Fi events should show error type, error count, and client impact (NO occurrences)
             const errorType = finding.error_type || 'connectivity';
-            const errorCount = finding.error_count || finding.total_occurrences || 0;
+            const errorCount = finding.error_count || 0;
             const clientCount = finding.impacted_clients || 0;
             parts.push(`experienced ${errorType} errors (${errorCount} errors affecting ${clientCount} clients)`);
+            
+            // Add geo location for Wi-Fi events
+            if (finding.geo_location) {
+              parts.push(`at ${finding.geo_location}`);
+            }
           } else if (categoryName.toLowerCase().includes('port error')) {
-            // Port errors should show error rate and type
+            // Port errors should show error rate and type (NO occurrences)
             const errorRate = finding.error_rate_percentage || 'unknown';
             const errorType = finding.error_type || 'traffic';
             const direction = finding.input_output_direction || 'traffic';
@@ -655,7 +665,7 @@ ${analysisText}
 INSTRUCTIONS:
 1. Extract ALL tables and categories from the report - DO NOT MISS ANY TABLES
 2. For each category, identify EXACTLY the top 3 most critical events/issues (no more, no less)
-3. Include ALL categories found: Interface Down Events, Device Availability, VPN Tunnel Down, Site Unreachable, Service Performance, WAN Utilization, Network Utilization, Connected Clients, Wi-Fi Issues, Port Errors, SLA Profiles, etc.
+3. Include ALL categories found: Interface Down Events, Device Availability, VPN Tunnel Down, Site Unreachable, Service Performance, WAN Utilization, Connected Clients, Wi-Fi Issues, Port Errors, SLA Profiles, etc. (Note: Network Utilization and WAN Utilization are the same category - use WAN Utilization only)
 
 4. CRITICAL: For Service Performance events, you MUST correlate with SLA data. Look for SLA tables and include the specific application name (e.g., "Google", "Office 365", "Salesforce") in the summary_line. Format: "Site experienced performance issues with [APPLICATION_NAME]"
    - Match Service Performance events with SLA table data by timestamp and occurrence
