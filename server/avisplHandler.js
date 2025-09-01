@@ -154,11 +154,12 @@ function generateAviSplBusinessAnalysis(events) {
   
   return {
     total_events: totalEvents,
-    business_hours_events: totalBusinessHoursEvents,
-    business_hours_percentage: businessHoursPercentage,
+    business_impact_events: totalBusinessHoursEvents,
+    no_business_hours_events: totalEvents - totalBusinessHoursEvents,
+    business_impact_percentage: businessHoursPercentage,
     cities_analyzed: Object.keys(cityEvents).length,
     city_breakdown: cityEvents,
-    business_hours_events_list: businessHoursEvents.map(event => ({
+    business_impact_events_list: businessHoursEvents.map(event => ({
       event_description: event.summary_line,
       business_impact: `Global business impact in ${event.geo_location}`,
       occurrence_time: event.last_occurrence,

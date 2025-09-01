@@ -504,7 +504,7 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
               finding.total_occurrences) {
             parts.push(`(${finding.total_occurrences} occurrences`);
           }
-          if (finding.avg_duration_minutes) parts.push(`${finding.avg_duration_minutes}min avg duration`);
+          if (finding.avg_duration_minutes) parts.push(`Avg duration: ${finding.avg_duration_minutes}min`);
           parts.push(')');
           
           finding.summary_line = parts.join(' ');
@@ -578,9 +578,10 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
         no_change_window: '02:00-04:00',
         backup_window: '01:00-03:00',
         total_events: totalAllEvents,
-        business_hours_events: businessHoursEvents,
-        business_hours_percentage: businessHoursPercentage,
-        business_hours_events_list: businessHoursEventsList,
+        business_impact_events: businessHoursEvents,
+        no_business_hours_events: totalAllEvents - businessHoursEvents,
+        business_impact_percentage: businessHoursPercentage,
+        business_impact_events_list: businessHoursEventsList,
         analysis_note: "Important: This analysis focuses on events with explicit time stamps and might not include all network events."
       };
       
@@ -603,7 +604,7 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
         businessHoursAnalysis.signature_dashboard = {
           title: "Signature Aviation - Airport Analysis",
           airports_identified: signatureReport.kpis.total_airports_with_issues,
-          events_during_business_hours: businessHoursEvents,
+          events_during_business_impact: businessHoursEvents,
           dashboard_table: signatureReport.dashboard_table,
           narrative: signatureReport.narrative,
           charts: signatureReport.charts
@@ -616,6 +617,13 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
         
         businessHoursAnalysis.avispl_note = "**Multi-global location analysis: NetOp automatically detects city names from site names and converts UTC timestamps to local time zones for accurate business hours impact assessment.**";
         businessHoursAnalysis.avispl_analysis = aviSplAnalysis;
+        // Update AVI-SPL analysis to use new terminology
+        if (businessHoursAnalysis.avispl_analysis) {
+          businessHoursAnalysis.avispl_analysis.business_impact_events = businessHoursAnalysis.avispl_analysis.business_hours_events;
+          businessHoursAnalysis.avispl_analysis.no_business_hours_events = businessHoursAnalysis.avispl_analysis.total_events - businessHoursAnalysis.avispl_analysis.business_hours_events;
+          businessHoursAnalysis.avispl_analysis.business_impact_percentage = businessHoursAnalysis.avispl_analysis.business_hours_percentage;
+          businessHoursAnalysis.avispl_analysis.business_impact_events_list = businessHoursAnalysis.avispl_analysis.business_hours_events_list;
+        }
       }
       
               // Generate meaningful executive summary based on actual findings
@@ -632,7 +640,7 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
         const executiveSummary = `Analysis of ${fileName} revealed ${combinedCategories.length} critical network areas requiring attention. 
         Found ${totalCriticalIssues} critical issues and ${totalMajorIssues} major issues across the infrastructure. 
         ${totalWorseningTrends} categories show worsening trends, with ${topCategory.category_name} being the most affected area. 
-        ${businessHoursPercentage}% of time-stamped events occurred during business hours, indicating significant operational impact.`;
+        ${businessHoursPercentage}% of time-stamped events occurred during business impact hours, indicating significant operational impact.`;
 
         const result = {
           report_metadata: {
@@ -694,9 +702,9 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
               recs.push(`Consider AI-powered Wi-Fi management and mesh networking for better coverage and reliability`);
             }
             
-            // Business hours impact
+            // Business impact
             if (businessHoursPercentage > 30) {
-              recs.push(`Business impact focus: ${businessHoursEvents} events (${businessHoursPercentage}%) occurred during business hours`);
+              recs.push(`Business impact focus: ${businessHoursEvents} events (${businessHoursPercentage}%) occurred during business impact hours`);
               recs.push(`Implement predictive analytics and automated response systems to minimize operational disruption`);
             }
             

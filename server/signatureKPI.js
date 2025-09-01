@@ -81,7 +81,8 @@ function calculateSignatureKPIs(events, airports) {
   
   const kpis = {
     total_airports_with_issues: airportsWithIssues.size,
-    airports_affected_during_business_hours: businessHoursAirports.size,
+    airports_affected_during_business_impact: businessHoursAirports.size,
+    airports_not_affected_during_business_hours: airportsWithIssues.size - businessHoursAirports.size,
     airport_operations_priority_index: aopiString || 'No incidents recorded',
     tier_breakdown: aopiBreakdown,
     total_incidents: totalIncidents
@@ -94,12 +95,12 @@ function calculateSignatureKPIs(events, airports) {
 
 // Generate aviation narrative
 function generateAviationNarrative(kpis) {
-  const { total_airports_with_issues, airports_affected_during_business_hours, airport_operations_priority_index } = kpis;
+  const { total_airports_with_issues, airports_affected_during_business_impact, airport_operations_priority_index } = kpis;
   
   let narrative = `Analysis of ${total_airports_with_issues} Signature Aviation airports revealed network infrastructure challenges. `;
   
-  if (airports_affected_during_business_hours > 0) {
-    narrative += `${airports_affected_during_business_hours} airports experienced incidents during business hours, potentially affecting ground handling and administrative workflows. `;
+  if (airports_affected_during_business_impact > 0) {
+    narrative += `${airports_affected_during_business_impact} airports experienced incidents during business hours, potentially affecting ground handling and administrative workflows. `;
   }
   
   if (airport_operations_priority_index.includes('Tier 1')) {
@@ -119,7 +120,8 @@ function generateAviationNarrative(kpis) {
 function createDashboardTable(kpis) {
   return [
     { "KPI": "Total Airports with Issues", "Value": kpis.total_airports_with_issues.toString() },
-    { "KPI": "Airports Affected During Business Hours", "Value": kpis.airports_affected_during_business_hours.toString() },
+    { "KPI": "Airports Affected During Business Impact", "Value": kpis.airports_affected_during_business_impact.toString() },
+    { "KPI": "Airports Not Affected During Business Hours", "Value": kpis.airports_not_affected_during_business_hours.toString() },
     { "KPI": "Airport Operations Priority Index", "Value": kpis.airport_operations_priority_index }
   ];
 }
