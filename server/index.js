@@ -166,8 +166,8 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -637,15 +637,7 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
       
       combinedCategories.push(...categoryMap.values());
       
-      // Apply AVI-SPL processing if detected (BEFORE summary line generation)
-      if (isAviSpl) {
-        const { processAviSplEvents } = require('./avisplHandler');
-        combinedCategories.forEach(category => {
-          if (category.findings) {
-            category.findings = processAviSplEvents(category.findings);
-          }
-        });
-      }
+      // AVI-SPL processing will be applied to all events after chunk aggregation
       
       // Apply Signature Aviation processing if detected (BEFORE summary line generation)
       if (isSignatureAviation) {
@@ -750,7 +742,7 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
         const { generateAviSplBusinessAnalysis } = require('./avisplHandler');
         const aviSplAnalysis = generateAviSplBusinessAnalysis(allEventsFromChunks);
         
-        businessHoursAnalysis.avispl_note = "**Multi-global location analysis: NetOp automatically detects city names from site names and converts UTC timestamps to local time zones for accurate business hours impact assessment.**";
+        businessHoursAnalysis.avispl_note = aviSplAnalysis.avispl_note || "**Note: For AVI-SPL reports, all timestamps have been automatically converted from UTC to the corresponding local time zones based on site names.**";
         businessHoursAnalysis.avispl_analysis = aviSplAnalysis;
         // Update AVI-SPL analysis to use new terminology
         if (businessHoursAnalysis.avispl_analysis) {
@@ -1250,6 +1242,15 @@ app.post('/api/analyze', upload.array('files', 10), async (req, res) => {
   }
 });
 
+// Add crash handlers
+process.on('uncaughtException', (e) => { 
+  console.error('FATAL ERROR:', e); 
+  process.exit(1);
+});
+process.on('unhandledRejection', (e) => { 
+  console.error('UNHANDLED REJECTION:', e); 
+});
+
 // Enhanced Napkin API endpoint
 app.post('/api/generate-image', async (req, res) => {
   try {
@@ -1408,7 +1409,7 @@ const signatureRoutes = require('./signature.controller');
 signatureRoutes(app);
 
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('🚀 NetOp AI - Napkin API proxy server running on port', PORT);
   console.log('📡 Health check: http://localhost:' + PORT + '/health');
   console.log('🛫 Signature Aviation endpoints:');
@@ -1420,6 +1421,10 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('OpenAI API Key loaded:', OPENAI_API_KEY ? 'Yes (length: ' + OPENAI_API_KEY.length + ')' : 'No');
   console.log('API Key starts with:', OPENAI_API_KEY ? 'sk-proj-' + OPENAI_API_KEY.substring(8, 15) + '...' : 'N/A');
 });
+
+// Configure server timeouts to prevent connection drops
+server.headersTimeout = 120000; // 2 minutes
+server.requestTimeout = 120000; // 2 minutes
 
 module.exports = app;
 

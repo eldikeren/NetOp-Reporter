@@ -2,73 +2,9 @@
 // Processes city names from site names and converts UTC to local time
 
 const { DateTime } = require('luxon');
+const { extractCityFromSiteName } = require('./cityMatcher');
 
-// Global city to timezone mapping
-const CITY_TIMEZONE_MAP = {
-  // Americas
-  'new york': 'America/New_York',
-  'los angeles': 'America/Los_Angeles',
-  'chicago': 'America/Chicago',
-  'toronto': 'America/Toronto',
-  'vancouver': 'America/Vancouver',
-  'edmonton': 'America/Edmonton',
-  'calgary': 'America/Edmonton',
-  'mexico city': 'America/Mexico_City',
-  'sao paulo': 'America/Sao_Paulo',
-  'buenos aires': 'America/Argentina/Buenos_Aires',
-  'phoenix': 'America/Phoenix',
-  'ft lauderdale': 'America/New_York',
-  'jacksonville': 'America/New_York',
-  'pittsburgh': 'America/New_York',
-  'houston': 'America/Chicago',
-  'detroit': 'America/New_York',
-  'seattle': 'America/Los_Angeles',
-  'boston': 'America/New_York',
-  'dublin': 'Europe/Dublin',
-  
-  // Europe
-  'london': 'Europe/London',
-  'paris': 'Europe/Paris',
-  'berlin': 'Europe/Berlin',
-  'madrid': 'Europe/Madrid',
-  'rome': 'Europe/Rome',
-  'amsterdam': 'Europe/Amsterdam',
-  'zurich': 'Europe/Zurich',
-  'stockholm': 'Europe/Stockholm',
-  'moscow': 'Europe/Moscow',
-  'frankfurt': 'Europe/Berlin',
-  
-  // Asia Pacific
-  'tokyo': 'Asia/Tokyo',
-  'singapore': 'Asia/Singapore',
-  'hong kong': 'Asia/Hong_Kong',
-  'sydney': 'Australia/Sydney',
-  'melbourne': 'Australia/Melbourne',
-  'mumbai': 'Asia/Kolkata',
-  'dubai': 'Asia/Dubai',
-  'shanghai': 'Asia/Shanghai',
-  'seoul': 'Asia/Seoul',
-  'bangkok': 'Asia/Bangkok'
-};
-
-// Extract city name from site name
-function extractCityFromSiteName(siteName) {
-  if (!siteName) return null;
-  
-  const normalizedSite = siteName.toLowerCase();
-  console.log(`🔍 Checking site name: "${siteName}" (normalized: "${normalizedSite}")`);
-  
-  // Find matching city in the timezone map
-  for (const [city, timezone] of Object.entries(CITY_TIMEZONE_MAP)) {
-    if (normalizedSite.includes(city)) {
-      console.log(`✅ Found city match: "${city}" with timezone "${timezone}" for site "${siteName}"`);
-      return { city: city, timezone: timezone };
-    }
-  }
-  
-  console.log(`❌ No city match found for site "${siteName}"`);
-  return null;
-}
+// City extraction is now handled by the enhanced cityMatcher module
 
 // Convert UTC timestamp to local time (robust parsing)
 function convertToLocalTimeAviSpl(utcTimestamp, timezone) {
@@ -222,14 +158,13 @@ function generateAviSplBusinessAnalysis(events) {
       duration_minutes: event.avg_duration_minutes || 0,
       severity: event.severity
     })),
-    analysis_note: "Important: This analysis focuses on events with explicit time stamps converted to local time zones based on city detection from site names."
+         analysis_note: "Important: This analysis focuses on events with explicit time stamps converted to local time zones based on city detection from site names.",
+     avispl_note: "**Note: For AVI-SPL reports, all timestamps have been automatically converted from UTC to the corresponding local time zones based on site names.**"
   };
 }
 
 module.exports = {
-  extractCityFromSiteName,
   isBusinessHoursAviSpl,
   processAviSplEvents,
-  generateAviSplBusinessAnalysis,
-  CITY_TIMEZONE_MAP
+  generateAviSplBusinessAnalysis
 };

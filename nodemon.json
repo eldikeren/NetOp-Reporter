@@ -1,0 +1,22 @@
+{
+  "watch": ["server"],
+  "ext": "js,json",
+  "ignore": [
+    "cache/**",
+    "uploads/**",
+    "reports/**",
+    "public/**",
+    "tmp/**",
+    "*.pdf",
+    "*.csv",
+    ".env",
+    "node_modules/**",
+    "client/**",
+    "test-*.js",
+    "debug-*.js"
+  ],
+  "delay": "200ms",
+  "env": {
+    "NODE_ENV": "development"
+  }
+}

@@ -461,6 +461,12 @@ export const generateEmailBodyHTML = (insight: any, fullReportUrl?: string, reci
                                     </p>
                                     ` : ''}
                                     
+                                    ${analysis_result.business_hours_analysis.avispl_note ? `
+                                    <p style="color: #dc2626; font-size: 14px; margin-bottom: 16px; font-weight: bold;">
+                                        ${analysis_result.business_hours_analysis.avispl_note}
+                                    </p>
+                                    ` : ''}
+                                    
                                     ${analysis_result.business_hours_analysis.signature_dashboard ? `
                                     <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
                                         <h4 style="font-size: 18px; font-weight: 600; color: #0c4a6e; margin-bottom: 16px;">

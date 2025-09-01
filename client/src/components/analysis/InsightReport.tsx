@@ -154,6 +154,9 @@ export default function InsightReport({ insight, onUpdate }: { insight: Insight;
   };
 
   const generateVariationsForCategory = async (category: any) => {
+    // Temporarily disable image generation to prevent connection errors
+    console.log('Image generation temporarily disabled to prevent connection errors');
+    return [];
     const variations = [];
 
     try {
