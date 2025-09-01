@@ -576,11 +576,12 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
         const { processSignatureAviationEvents } = require('./signatureAviationHandler');
         allEventsFromChunks = await processSignatureAviationEvents(allEventsFromChunks);
       }
-      // For Signature Aviation, count ALL events with timestamps (should be much higher than 19)
-      const timestampedEvents = allEventsFromChunks.filter(event => event.last_occurrence && event.last_occurrence.includes(':'));
-      const totalAllEvents = isSignatureAviation ? timestampedEvents.length : allEventsFromChunks.length;
+      // Count ALL events with timestamps from the entire PDF for ALL customers
+      // This should include ALL events, not just the processed ones
+      const allTimestampedEvents = allEventsFromChunks.filter(event => event.last_occurrence && event.last_occurrence.includes(':'));
+      const totalAllEvents = allTimestampedEvents.length;
       
-      console.log(`📊 Total events found: ${allEventsFromChunks.length}, Timestamped events: ${timestampedEvents.length}, Using: ${totalAllEvents}`);
+      console.log(`📊 Total events found: ${allEventsFromChunks.length}, Timestamped events: ${allTimestampedEvents.length}, Using: ${totalAllEvents}`);
       
       // Count events that actually have business_hours_impact = "YES" from ALL events
       const businessHoursEvents = allEventsFromChunks.filter(f => f.business_hours_impact === "YES").length;
@@ -612,11 +613,15 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
       };
       
       if (isSignatureAviation) {
-        businessHoursAnalysis.signature_aviation_note = "**Note: NetOp has programmatically resolved airport IATA codes to their corresponding city locations and local time zones; all timestamps in this report are presented in local time based on that conversion.**";
+        businessHoursAnalysis.signature_aviation_note = "**Note: NetOp has programmatically resolved airport IATA codes to their corresponding city locations and local time zones. All timestamps in these reports are presented in local time based on that conversion. While we recognize that airport operations typically run 24/7, the business impact shown here is assessed against standard business hours to reflect the perspective of on-site officers working during normal shifts, even though we acknowledge there are broader effects on overall airport operations.**";
         
         // Generate enhanced Signature Aviation business impact analysis
         const { generateSignatureAviationBusinessAnalysis } = require('./signatureAviationHandler');
         const signatureAnalysis = generateSignatureAviationBusinessAnalysis(allEventsFromChunks);
+        
+        // Update the total events count to reflect ALL timestamped events from the PDF
+        signatureAnalysis.total_events = totalAllEvents;
+        signatureAnalysis.business_impact_percentage = totalAllEvents > 0 ? Math.round((signatureAnalysis.business_impact_events / totalAllEvents) * 100) : 0;
         
         // Generate KPI dashboard
         const { generateSignatureAviationReport } = require('./signatureKPI');
@@ -909,7 +914,7 @@ IMPORTANT: Extract ALL tables and ALL events. Do not skip any categories or even
     
     // Add Signature Aviation specific content to the normalized analysis
     if (isSignatureAviation) {
-              normalizedAnalysis.business_hours_analysis.signature_aviation_note = "**Note: NetOp has programmatically resolved airport IATA codes to their corresponding city locations and local time zones; all timestamps in this report are presented in local time based on that conversion.**";
+              normalizedAnalysis.business_hours_analysis.signature_aviation_note = "**Note: NetOp has programmatically resolved airport IATA codes to their corresponding city locations and local time zones. All timestamps in these reports are presented in local time based on that conversion. While we recognize that airport operations typically run 24/7, the business impact shown here is assessed against standard business hours to reflect the perspective of on-site officers working during normal shifts, even though we acknowledge there are broader effects on overall airport operations.**";
       normalizedAnalysis.business_hours_analysis.signature_dashboard = {
         title: "Signature Aviation - Airport Analysis",
         airports_identified: 0, // Will be populated by Signature Aviation analysis

@@ -85,7 +85,8 @@ function calculateSignatureKPIs(events, airports) {
     airports_not_affected_during_business_hours: airportsWithIssues.size - businessHoursAirports.size,
     airport_operations_priority_index: aopiString || 'No incidents recorded',
     tier_breakdown: aopiBreakdown,
-    total_incidents: totalIncidents
+    total_incidents: totalIncidents,
+    total_events_analyzed: events.length
   };
   
   console.log(`✅ KPIs calculated: ${kpis.total_airports_with_issues} airports, ${kpis.airports_affected_during_business_hours} during business hours`);

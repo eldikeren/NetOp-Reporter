@@ -461,6 +461,35 @@ export const generateEmailBodyHTML = (insight: any, fullReportUrl?: string, reci
                                     </p>
                                     ` : ''}
                                     
+                                    ${analysis_result.business_hours_analysis.signature_dashboard ? `
+                                    <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                                        <h4 style="font-size: 18px; font-weight: 600; color: #0c4a6e; margin-bottom: 16px;">
+                                            🛫 ${analysis_result.business_hours_analysis.signature_dashboard.title}
+                                        </h4>
+                                        
+                                        ${analysis_result.business_hours_analysis.signature_dashboard.dashboard_table ? `
+                                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 16px;">
+                                            ${analysis_result.business_hours_analysis.signature_dashboard.dashboard_table.map((kpi: any) => `
+                                                <div style="text-align: center; background: #ffffff; border: 1px solid #e0f2fe; border-radius: 6px; padding: 12px;">
+                                                    <div style="font-size: 20px; font-weight: bold; color: #0c4a6e;">
+                                                        ${kpi.Value}
+                                                    </div>
+                                                    <div style="font-size: 12px; color: #0c4a6e; font-weight: 500;">
+                                                        ${kpi.KPI}
+                                                    </div>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                        ` : ''}
+                                        
+                                        ${analysis_result.business_hours_analysis.signature_dashboard.narrative ? `
+                                        <p style="color: #0c4a6e; font-size: 14px; line-height: 1.5; margin-bottom: 0;">
+                                            ${analysis_result.business_hours_analysis.signature_dashboard.narrative}
+                                        </p>
+                                        ` : ''}
+                                    </div>
+                                    ` : ''}
+                                    
                                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
                                         <div style="text-align: center;">
                                             <div style="font-size: 24px; font-weight: bold; color: #dc2626;">
