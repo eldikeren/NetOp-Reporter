@@ -1,0 +1,61 @@
+Executive Summary Report
+The report provides a comprehensive summary of the most critical issues detected over the past week across all monitored network sites.
+
+Company Name: Signature Aviation
+Report Dates: 07/27/2025 - 08/23/2025
+
+Interface down events
+The table indicates the top interface down events from the last week.
+Site Device Interface Info Trend Avg Duration Occurrences
+SFS-BHX SFS-BHX-VEDGE GE4 -18% 8 min. 4
+SFS-GRR-MRO SFS-GRR-MRO-VEDGE GE4 46% 10.19 min. 33
+SFS-SJC SFS-SJC-VEDGE GE4 -30% 10.58 min. 8
+
+Site Unreachable events
+The table shows sites that were completely unreachable during the reporting period.
+Site Device Last Unreachable (UTC+0) Duration (min) Impact Level Business Hours Impact
+SFS-RDU SFS-RDU-VEDGE 08/17/2025 11:01 45 Critical YES
+SFS-VNY-W-VEDGE SFS-VNY-W-VEDGE 08/22/2025 13:08 120 Critical YES
+SFS-CIA SFS-CIA-VEDGE 08/23/2025 12:52 30 High YES
+
+Device Availability
+The table presents a detailed overview of devices that experienced downtime or unreachability events in the past week, including associated uptime metrics and historical trend analysis over the past four week.
+Site Device Device Type Reachability Uptime Unreachable count Latest restart (UTC+0) Reachable since (UTC+0) Reachability trend Latest Status
+SFS-RDU SFS-RDU-VEDGE SDWAN 99% 85% 1 - 08/17/2025 11:01 25% COMPLETE
+SFS-VNY-W-VEDGE SFS-VNY-W-VEDGE SDWAN 99% 85% 2 - 08/22/2025 13:08 50% COMPLETE
+
+VPN Tunnel Down anomalies
+The table contains the top VPN tunnel downtime anomalies and their occurrences from the past week
+Site Device Tunnel Name Last Occurred (UTC+0) Trend Latest Status Avg Duration Occurrences
+SFS-CIA SFS-CIA-VEDGE ZScaler-IPSEC 08/23/2025 12:52 151% COMPLETE 3.25 min. 16
+SFS-ORF-KRONOS-VED SFS-ORF-KRONOS-VED ZScaler-IPSEC 08/17/2025 08:27 123% COMPLETE 11.96 min. 8
+
+Wan Utilization
+The table indicates the top sites with the highest wan utilization metrics from the last 4 weeks
+Site Device Interface Trend In/Out Up Avg/Max Down Avg/Max
+SFS-DTW SFS-DTW-VEDGE GE4 78%/68% 3.7 / 44.7 0.17 / 3.7
+SFS-HPN-WEST SFS-HPN-W-VEDG GE3 11%/150% 6.41 / 26.9 6.76 / 10.6
+
+Network utilization incidents
+The table shows critical network utilization incidents that affected service quality.
+Site Device Incident Type Duration (min) Impacted Users Business Hours
+SFS-DTW SFS-DTW-VEDGE Bandwidth Saturation 120 2500 YES
+SFS-HPN-WEST SFS-HPN-W-VEDG Packet Loss 45 1800 YES
+
+Connected clients
+The table displays client connectivity issues and their impact.
+Site Device Client Type Disconnected Count Reconnection Time Business Hours
+SFS-TEB-SOUTH SFS-TEB-S-AP1 Mobile Users 112 15 min YES
+SFS-PDK SFS-PDK-AP1 Desktop Users 106 8 min YES
+
+Wi-Fi Issues
+The table indicates the top devices with a detected wi-fi issues from last week.
+Site Device Error Type Trend Total Impacted clients
+SFS-TEB-SOUTH SFS-TEB-S-AP1 association 7% 3848 112
+SFS-PDK SFS-PDK-AP1 association 20% 830 106
+
+Port Errors
+The table provides the top ports with errors rate in % from the last week
+Site Device Port Info Trend In (Avg/Max) Out (Avg/Max)
+SFS-LTN sfs-ltn-t1-l3sw1.bbaaviation.net Po2 Trunk 0% 0.157 / 1.143 0 / 0
+SFS-HOU sfs-hou-sw1.bbaaviation.net Gi1/0/3 xDP 0% 0.009 / 1.482 0 / 0

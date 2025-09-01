@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Environment variables
+.env
+server/.env
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build outputs
+client/build/
+dist/
+build/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Uploaded files (PDFs for processing)
+server/uploads/
+uploads/
+
+# Package lock files (keep package.json, ignore lock files for flexibility)
+package-lock.json
+yarn.lock
+
+# Server zip files
+*.zip
+
+# Test files that might contain sensitive data
+server/test-*.pdf
+*.pdf
