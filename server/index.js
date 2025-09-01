@@ -253,9 +253,11 @@ ${slaInstruction}
    - Error type (association, authentication, DHCP, roaming, etc.)
    - Number of errors (not occurrences - these are separate metrics)
    - Number of impacted clients
-   - Format: "Site AP experienced [ERROR_TYPE] errors affecting [CLIENT_COUNT] clients"
-   - Include error_type, error_count, and impacted_clients fields
+   - ALWAYS include the Access Point (AP) / Device Name (e.g., North 203, Unit 1604)
+   - Format: "Site [DEVICE_NAME] experienced [ERROR_TYPE] errors affecting [CLIENT_COUNT] clients"
+   - Include error_type, error_count, impacted_clients, and device_name fields
    - ONLY include Wi-Fi Issues if they actually appear in the PDF content
+   - Sort so the top offending devices appear first
 
 6. CRITICAL: For Port Errors, you MUST extract:
    - Error rate percentage (input/output traffic errors)
@@ -274,17 +276,25 @@ ${slaInstruction}
    - Application name (for Service Performance events, from SLA data)
    - Number of occurrences (total_occurrences)
    - Average duration in minutes (avg_duration_minutes)
-   - Severity (critical_issue, major_issue, minor_issue)
+   - Severity (major_issue, minor_issue) - DO NOT use "critical_issue"
    - Business hours impact (YES/NO) - ONLY set to YES if there's a specific timestamp with time (HH:MM) showing the event occurred between 09:00-18:00. If only date is available without time (e.g., "08/30/2025" without time), set to NO. If timestamp shows time outside 09:00-18:00, set to NO.
    - Last occurrence date with time (last_occurrence) - include time if available
    - Trend (worsening_trend, improving_trend, stable_trend)
-   - For Wi-Fi events: error_type, error_count, impacted_clients
+   - For Wi-Fi events: error_type, error_count, impacted_clients, device_name
    - Summary line should include: site, device/interface, occurrences, duration, and application name if applicable
 
-8. Business hours are 09:00-18:00 local time
-9. All timestamps are in UTC - convert to ${timezone} timezone
-10. Provide comprehensive business hours analysis
-11. Include specific recommendations
+9. SEVERITY RULES (Report Summary):
+   - DO NOT use "Critical" severity for any category
+   - "Major" is the highest severity level
+   - For Connected Clients: Mark as "Major" if deviation ≥ 20%, otherwise "Minor" or unmarked
+   - For Wi-Fi Issues: Mark device with highest error count as "Major", others as "Minor"
+   - For Interface Down Events: Use "Major" or "Minor" based on impact
+   - For all other categories: Use existing severity logic but never "Critical"
+
+10. Business hours are 09:00-18:00 local time
+11. All timestamps are in UTC - convert to ${timezone} timezone
+12. Provide comprehensive business hours analysis
+13. Include specific recommendations
 
 OUTPUT FORMAT (JSON):
 {
@@ -336,8 +346,10 @@ ${slaInstruction}
    - Error type (association, authentication, DHCP, roaming, etc.)
    - Number of errors (not occurrences - these are separate metrics)
    - Number of impacted clients
-   - Format: "Site AP experienced [ERROR_TYPE] errors affecting [CLIENT_COUNT] clients"
-   - Include error_type, error_count, and impacted_clients fields
+   - ALWAYS include the Access Point (AP) / Device Name (e.g., North 203, Unit 1604)
+   - Format: "Site [DEVICE_NAME] experienced [ERROR_TYPE] errors affecting [CLIENT_COUNT] clients"
+   - Include error_type, error_count, impacted_clients, and device_name fields
+   - Sort so the top offending devices appear first
 
 6. CRITICAL: For Port Errors, you MUST extract:
    - Error rate percentage (input/output traffic errors)
@@ -354,17 +366,25 @@ ${slaInstruction}
    - Application name (for Service Performance events, from SLA data)
    - Number of occurrences (total_occurrences)
    - Average duration in minutes (avg_duration_minutes)
-   - Severity (critical_issue, major_issue, minor_issue)
+   - Severity (major_issue, minor_issue) - DO NOT use "critical_issue"
    - Business hours impact (YES/NO) - ONLY set to YES if there's a specific timestamp with time (HH:MM) showing the event occurred between 09:00-18:00. If only date is available without time (e.g., "08/30/2025" without time), set to NO. If timestamp shows time outside 09:00-18:00, set to NO.
    - Last occurrence date with time (last_occurrence) - include time if available
    - Trend (worsening_trend, improving_trend, stable_trend)
-   - For Wi-Fi events: error_type, error_count, impacted_clients
+   - For Wi-Fi events: error_type, error_count, impacted_clients, device_name
    - Summary line should include: site, device/interface, occurrences, duration, and application name if applicable
 
-8. Business hours are 09:00-18:00 local time
-9. All timestamps are in UTC - convert to ${timezone} timezone
-10. Provide comprehensive business hours analysis
-11. Include specific recommendations
+9. SEVERITY RULES (Report Summary):
+   - DO NOT use "Critical" severity for any category
+   - "Major" is the highest severity level
+   - For Connected Clients: Mark as "Major" if deviation ≥ 20%, otherwise "Minor" or unmarked
+   - For Wi-Fi Issues: Mark device with highest error count as "Major", others as "Minor"
+   - For Interface Down Events: Use "Major" or "Minor" based on impact
+   - For all other categories: Use existing severity logic but never "Critical"
+
+10. Business hours are 09:00-18:00 local time
+11. All timestamps are in UTC - convert to ${timezone} timezone
+12. Provide comprehensive business hours analysis
+13. Include specific recommendations
 
 OUTPUT FORMAT (JSON):
 {
@@ -374,7 +394,7 @@ OUTPUT FORMAT (JSON):
       "findings": [
         {
           "summary_line": "Brief description of the issue",
-          "severity": "critical_issue|major_issue|minor_issue",
+          "severity": "major_issue|minor_issue",
           "trend": "worsening_trend|improving_trend|stable_trend",
           "last_occurrence": "MM/DD/YYYY",
           "avg_duration_minutes": number,
@@ -647,6 +667,40 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
       combinedCategories.length = 0;
       combinedCategories.push(...filteredCategories);
       
+      // Apply new severity rules and formatting for Report Summary
+      combinedCategories.forEach(category => {
+        if (category.findings) {
+          category.findings.forEach(finding => {
+            // Remove "critical_issue" severity - convert to "major_issue"
+            if (finding.severity === 'critical_issue') {
+              finding.severity = 'major_issue';
+            }
+            
+            // Apply specific severity rules for Connected Clients
+            if (category.category_name.toLowerCase().includes('connected clients')) {
+              // Extract deviation percentage from summary line or trend
+              const deviationMatch = finding.summary_line.match(/(-?\d+)%/);
+              if (deviationMatch) {
+                const deviation = Math.abs(parseInt(deviationMatch[1]));
+                finding.severity = deviation >= 20 ? 'major_issue' : 'minor_issue';
+              }
+            }
+            
+            // Apply specific severity rules for Wi-Fi Issues
+            if (category.category_name.toLowerCase().includes('wi-fi') || category.category_name.toLowerCase().includes('wifi')) {
+              // This will be handled by sorting - highest error count gets "major_issue"
+              // The AI prompt will handle the sorting and severity assignment
+            }
+            
+            // Apply specific severity rules for Interface Down Events
+            if (category.category_name.toLowerCase().includes('interface down')) {
+              // Use "major_issue" for interface down events as they are typically impactful
+              finding.severity = 'major_issue';
+            }
+          });
+        }
+      });
+      
       // AVI-SPL processing will be applied to all events after chunk aggregation
       
       // Apply Signature Aviation processing if detected (BEFORE summary line generation)
@@ -723,17 +777,21 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
       }
       
       // Add Signature Aviation specific content
-      let businessHoursAnalysis = {
-          peak_incident_hours: '09:00-17:00',
-          no_change_window: '02:00-04:00',
-          backup_window: '01:00-03:00',
-          total_events: totalAllEvents,
-        business_impact_events: businessHoursEvents,
-        no_business_hours_events: totalAllEvents - businessHoursEvents,
-        business_impact_percentage: businessHoursPercentage,
-        business_impact_events_list: businessHoursEventsList,
-        analysis_note: "Important: This analysis focuses on events with explicit time stamps and might not include all network events."
-      };
+      // Only include business hours analysis if there are timestamped events
+      let businessHoursAnalysis = null;
+      if (totalAllEvents > 0) {
+        businessHoursAnalysis = {
+            peak_incident_hours: '09:00-17:00',
+            no_change_window: '02:00-04:00',
+            backup_window: '01:00-03:00',
+            total_events: totalAllEvents,
+          business_impact_events: businessHoursEvents,
+          no_business_hours_events: totalAllEvents - businessHoursEvents,
+          business_impact_percentage: businessHoursPercentage,
+          business_impact_events_list: businessHoursEventsList,
+          analysis_note: "Important: This analysis focuses on events with explicit time stamps and might not include all network events."
+        };
+      }
       
       if (isSignatureAviation) {
         businessHoursAnalysis.signature_aviation_note = "**Note: NetOp has programmatically resolved airport IATA codes to their corresponding city locations and local time zones. All timestamps in these reports are presented in local time based on that conversion. While we recognize that airport operations typically run 24/7, the business impact shown here is assessed against standard business hours to reflect the perspective of on-site officers working during normal shifts, even though we acknowledge there are broader effects on overall airport operations.**";
@@ -788,20 +846,24 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
       }
       
               // Generate meaningful executive summary based on actual findings
-        const totalCriticalIssues = combinedCategories.reduce((sum, cat) => 
-          sum + (cat.findings?.filter(f => f.severity === 'critical_issue').length || 0), 0);
         const totalMajorIssues = combinedCategories.reduce((sum, cat) => 
           sum + (cat.findings?.filter(f => f.severity === 'major_issue').length || 0), 0);
+        const totalMinorIssues = combinedCategories.reduce((sum, cat) => 
+          sum + (cat.findings?.filter(f => f.severity === 'minor_issue').length || 0), 0);
         const totalWorseningTrends = combinedCategories.reduce((sum, cat) => 
           sum + (cat.findings?.filter(f => f.trend === 'worsening_trend').length || 0), 0);
         
         const topCategory = combinedCategories.reduce((max, cat) => 
           cat.findings?.length > (max.findings?.length || 0) ? cat : max, { category_name: 'Network Issues', findings: [] });
         
+        const businessHoursText = totalAllEvents > 0 ? 
+          `${businessHoursPercentage}% of time-stamped events occurred during business impact hours, indicating significant operational impact.` :
+          'No timestamped events found for business hours analysis.';
+        
         const executiveSummary = `Analysis of ${fileName} revealed ${combinedCategories.length} critical network areas requiring attention. 
-        Found ${totalCriticalIssues} critical issues and ${totalMajorIssues} major issues across the infrastructure. 
+        Found ${totalMajorIssues} major issues and ${totalMinorIssues} minor issues across the infrastructure. 
         ${totalWorseningTrends} categories show worsening trends, with ${topCategory.category_name} being the most affected area. 
-        ${businessHoursPercentage}% of time-stamped events occurred during business impact hours, indicating significant operational impact.`;
+        ${businessHoursText}`;
 
         const result = {
           report_metadata: {
@@ -932,17 +994,25 @@ INSTRUCTIONS:
    - Application name (for Service Performance events, from SLA data)
    - Number of occurrences (total_occurrences)
    - Average duration in minutes (avg_duration_minutes)
-   - Severity (critical_issue, major_issue, minor_issue)
+   - Severity (major_issue, minor_issue) - DO NOT use "critical_issue"
    - Business hours impact (YES/NO) - ONLY set to YES if there's a specific timestamp with time (HH:MM) showing the event occurred between 09:00-18:00. If only date is available without time (e.g., "08/30/2025" without time), set to NO. If timestamp shows time outside 09:00-18:00, set to NO.
    - Last occurrence date with time (last_occurrence) - include time if available
    - Trend (worsening_trend, improving_trend, stable_trend)
-   - For Wi-Fi events: error_type, error_count, impacted_clients
+   - For Wi-Fi events: error_type, error_count, impacted_clients, device_name
    - Summary line should include: site, device/interface, occurrences, duration, and application name if applicable
 
-8. Business hours are 09:00-18:00 local time
-9. All timestamps are in UTC - convert to ${timezone} timezone
-10. For business hours analysis, ONLY include events with specific timestamps showing 09:00-18:00 occurrence
-11. Include specific recommendations
+9. SEVERITY RULES (Report Summary):
+   - DO NOT use "Critical" severity for any category
+   - "Major" is the highest severity level
+   - For Connected Clients: Mark as "Major" if deviation ≥ 20%, otherwise "Minor" or unmarked
+   - For Wi-Fi Issues: Mark device with highest error count as "Major", others as "Minor"
+   - For Interface Down Events: Use "Major" or "Minor" based on impact
+   - For all other categories: Use existing severity logic but never "Critical"
+
+10. Business hours are 09:00-18:00 local time
+11. All timestamps are in UTC - convert to ${timezone} timezone
+12. For business hours analysis, ONLY include events with specific timestamps showing 09:00-18:00 occurrence
+13. Include specific recommendations
 
 OUTPUT FORMAT (JSON):
 {
@@ -1000,7 +1070,7 @@ OUTPUT FORMAT (JSON):
   }
 }
 
-IMPORTANT: Extract ALL tables and ALL events. Do not skip any categories or events. Provide complete analysis.`;
+IMPORTANT: Extract ALL tables and ALL events. Do not skip any categories or events. Provide complete analysis. EXCLUDE "Device Alerting" category completely - do not process it even if found in the PDF.`;
 
     // Call OpenAI API
     const completion = await openai.chat.completions.create({
