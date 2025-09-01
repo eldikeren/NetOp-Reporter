@@ -183,13 +183,13 @@ class PDFProcessor {
           const trend = trendMatch ? trendMatch[1] + '%' : '0%';
           
           return {
-            summary_line: `${site} ${device} ${iface} had ${occ} interface down occurrences with average duration of ${avgDur} minutes (${trend} trend)`,
+            summary_line: `${site} ${device} ${iface} experienced interface down events (${occ} occurrences Avg duration: ${avgDur}min )`,
             severity: occ > 5 ? 'critical_issue' : occ > 2 ? 'major_issue' : 'minor_issue',
             trend: trend.includes('-') ? 'improving_trend' : 'worsening_trend',
-            last_occurrence: '08/30/2025',
+            last_occurrence: null, // No timestamp available in PDF
             avg_duration_minutes: avgDur,
             total_occurrences: occ,
-            business_hours_impact: 'YES', // Interface down typically affects business
+            business_hours_impact: 'NO', // No timestamp to determine business hours
             site_name: site,
             device_name: device,
             interface_name: iface
@@ -207,10 +207,10 @@ class PDFProcessor {
             summary_line: `${site} ${device} was unreachable ${unreachable} times with ${uptime}% uptime`,
             severity: uptime < 95 ? 'critical_issue' : uptime < 99 ? 'major_issue' : 'minor_issue',
             trend: 'worsening_trend',
-            last_occurrence: lastRestart,
+            last_occurrence: lastRestart || null, // Use actual timestamp if found, otherwise null
             avg_duration_minutes: 0,
             total_occurrences: unreachable,
-            business_hours_impact: this.isBusinessHours(lastRestart) ? 'YES' : 'NO',
+            business_hours_impact: lastRestart && this.isBusinessHours(lastRestart) ? 'YES' : 'NO',
             site_name: site,
             device_name: device
           };
@@ -223,13 +223,13 @@ class PDFProcessor {
           const lastOccurred = parts.find(p => /\d{1,2}\/\d{1,2}\/\d{4}/.test(p)) || '08/30/2025';
           
           return {
-            summary_line: `${site} was unreachable ${occ} times with average duration of ${avgDur} minutes`,
+            summary_line: `${site} experienced site unreachable (${occ} occurrences Avg duration: ${avgDur}min )`,
             severity: 'critical_issue', // Site unreachable is always critical
             trend: 'worsening_trend',
-            last_occurrence: lastOccurred,
+            last_occurrence: lastOccurred || null, // Use actual timestamp if found, otherwise null
             avg_duration_minutes: avgDur,
             total_occurrences: occ,
-            business_hours_impact: this.isBusinessHours(lastOccurred) ? 'YES' : 'NO',
+            business_hours_impact: lastOccurred && this.isBusinessHours(lastOccurred) ? 'YES' : 'NO',
             site_name: site
           };
         }
@@ -246,7 +246,7 @@ class PDFProcessor {
             summary_line: `${site} ${device} had ${occ} SLA violations with average duration of ${avgDur} minutes`,
             severity: avgDur > 30 ? 'critical_issue' : avgDur > 10 ? 'major_issue' : 'minor_issue',
             trend: 'worsening_trend',
-            last_occurrence: lastOccurred,
+            last_occurrence: lastOccurred || null, // Use actual timestamp if found, otherwise null
             avg_duration_minutes: avgDur,
             total_occurrences: occ,
             business_hours_impact: this.isBusinessHours(lastOccurred) ? 'YES' : 'NO',

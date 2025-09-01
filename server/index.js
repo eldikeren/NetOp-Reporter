@@ -668,7 +668,12 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
       }
       // Count ALL events with timestamps from the entire PDF for ALL customers
       // This should include ALL events, not just the processed ones
-      const allTimestampedEvents = allEventsFromChunks.filter(event => event.last_occurrence && event.last_occurrence.includes(':'));
+      // A real timestamp should have both date and time (HH:MM format)
+      const allTimestampedEvents = allEventsFromChunks.filter(event => {
+        if (!event.last_occurrence) return false;
+        // Check if it has time component (HH:MM format)
+        return /\d{1,2}:\d{2}/.test(event.last_occurrence);
+      });
       const totalAllEvents = allTimestampedEvents.length;
       
       console.log(`📊 Total events found: ${allEventsFromChunks.length}, Timestamped events: ${allTimestampedEvents.length}, Using: ${totalAllEvents}`);
@@ -693,9 +698,10 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
         businessHoursPercentage = 0;
       } else {
         // For non-AVI-SPL reports, use the standard calculation
-        businessHoursEvents = allEventsFromChunks.filter(f => f.business_hours_impact === "YES").length;
+        // Only count business hours events from events that have real timestamps
+        businessHoursEvents = allTimestampedEvents.filter(f => f.business_hours_impact === "YES").length;
         businessHoursPercentage = totalAllEvents > 0 ? Math.round((businessHoursEvents / totalAllEvents) * 100) : 0;
-        businessHoursEventsList = allEventsFromChunks
+        businessHoursEventsList = allTimestampedEvents
           .filter(f => f.business_hours_impact === "YES")
           .map(finding => ({
             event_description: finding.summary_line,

@@ -78,8 +78,8 @@ function processAviSplEvents(events) {
       event.geo_location = cityInfo.city;
       event.local_timezone = cityInfo.timezone;
       
-      // Check business hours impact if timestamp exists
-      if (event.last_occurrence) {
+      // Check business hours impact if timestamp exists and has time component
+      if (event.last_occurrence && /\d{1,2}:\d{2}/.test(event.last_occurrence)) {
         console.log(`🕐 Converting UTC time "${event.last_occurrence}" to ${cityInfo.timezone} for ${cityInfo.city}`);
         const timeConversion = convertToLocalTimeAviSpl(event.last_occurrence, cityInfo.timezone);
         
@@ -107,7 +107,7 @@ function processAviSplEvents(events) {
       }
     } else {
       // For events without city match, still set business_hours_impact to 'NO' if they have timestamps
-      if (event.last_occurrence && event.last_occurrence.includes(':')) {
+      if (event.last_occurrence && /\d{1,2}:\d{2}/.test(event.last_occurrence)) {
         event.business_hours_impact = 'NO';
         console.log(`⚠️ No city match for ${event.site_name}, setting business_hours_impact to NO`);
       }
@@ -126,10 +126,16 @@ function generateAviSplBusinessAnalysis(events) {
   const businessHoursEvents = [];
   
   // Count ALL events with timestamps, not just those with geo_location
-  const eventsWithTimestamps = events.filter(event => event.last_occurrence && event.last_occurrence.includes(':'));
+  // A real timestamp should have both date and time (HH:MM format)
+  const eventsWithTimestamps = events.filter(event => {
+    if (!event.last_occurrence) return false;
+    // Check if it has time component (HH:MM format)
+    return /\d{1,2}:\d{2}/.test(event.last_occurrence);
+  });
   
   events.forEach(event => {
-    if (event.geo_location) {
+    // Only process events that have real timestamps
+    if (event.geo_location && event.last_occurrence && /\d{1,2}:\d{2}/.test(event.last_occurrence)) {
       if (!cityEvents[event.geo_location]) {
         cityEvents[event.geo_location] = {
           total: 0,
