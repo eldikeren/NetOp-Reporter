@@ -98,9 +98,21 @@ export const generateEmailBodyText = (insight: any, fullReportUrl?: string, reci
 
     body += "💡 Recommendations\n";
     if (recommendations && recommendations.length > 0) {
-        recommendations.forEach((rec: string) => {
-            body += `• ${rec}\n`;
-        });
+        // Handle new structured recommendations format
+        if (typeof recommendations[0] === 'object' && recommendations[0].section) {
+            recommendations.forEach((section: any) => {
+                body += `${section.section}\n`;
+                section.items.forEach((item: string) => {
+                    body += `• ${item}\n`;
+                });
+                body += "\n";
+            });
+        } else {
+            // Handle legacy format (array of strings)
+            recommendations.forEach((rec: string) => {
+                body += `• ${rec}\n`;
+            });
+        }
     } else {
         body += "No specific recommendations generated.\n";
     }
@@ -402,7 +414,24 @@ export const generateEmailBodyHTML = (insight: any, fullReportUrl?: string, reci
     };
 
     const recommendationsHtml = recommendations && recommendations.length > 0
-        ? `<div style="${styles.recommendationList}">${recommendations.map((rec: string) => `<div style="${styles.recommendationItem}">• ${rec}</div>`).join('')}</div>`
+        ? (() => {
+            // Handle new structured recommendations format
+            if (typeof recommendations[0] === 'object' && recommendations[0].section) {
+                return `<div style="${styles.recommendationList}">
+                    ${recommendations.map((section: any) => `
+                        <div style="margin-bottom: 24px;">
+                            <h4 style="font-size: 16px; font-weight: 600; color: #1f2937; margin-bottom: 12px; border-bottom: 2px solid #3b82f6; padding-bottom: 4px;">
+                                ${section.section}
+                            </h4>
+                            ${section.items.map((item: string) => `<div style="${styles.recommendationItem}">• ${item}</div>`).join('')}
+                        </div>
+                    `).join('')}
+                </div>`;
+            } else {
+                // Handle legacy format (array of strings)
+                return `<div style="${styles.recommendationList}">${recommendations.map((rec: string) => `<div style="${styles.recommendationItem}">• ${rec}</div>`).join('')}</div>`;
+            }
+        })()
         : `<p style="font-size: 14px; color: #64748b; font-style: italic;">No specific recommendations generated.</p>`;
 
     const chartsHTML = createEmailCharts(analysis_result);
@@ -437,7 +466,7 @@ export const generateEmailBodyHTML = (insight: any, fullReportUrl?: string, reci
                                 ${greetingHTML}
                                 
                                 <div style="${styles.metaInfo}">
-                                    <strong>📁 Source:</strong> ${company_name}<br>
+                                    <strong>📁 Source:</strong> ${report_metadata.customer_name || company_name}<br>
                                     <strong>📅 Period:</strong> ${report_metadata.reporting_period_start} to ${report_metadata.reporting_period_end}
                                 </div>
                                 
@@ -702,7 +731,24 @@ export const generateCombinedEmailBodyHTML = (insights: any[], recipientName?: s
         };
 
         const recommendationsHtml = recommendations && recommendations.length > 0
-            ? `<ul style="margin: 0; padding-left: 20px;">${recommendations.map((rec: string) => `<li style="margin: 4px 0;">${rec}</li>`).join('')}</ul>`
+            ? (() => {
+                // Handle new structured recommendations format
+                if (typeof recommendations[0] === 'object' && recommendations[0].section) {
+                    return recommendations.map((section: any) => `
+                        <div style="margin-bottom: 20px;">
+                            <h5 style="font-size: 14px; font-weight: 600; color: #1f2937; margin-bottom: 8px; border-bottom: 1px solid #3b82f6; padding-bottom: 2px;">
+                                ${section.section}
+                            </h5>
+                            <ul style="margin: 0; padding-left: 20px;">
+                                ${section.items.map((item: string) => `<li style="margin: 4px 0;">${item}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `).join('');
+                } else {
+                    // Handle legacy format (array of strings)
+                    return `<ul style="margin: 0; padding-left: 20px;">${recommendations.map((rec: string) => `<li style="margin: 4px 0;">${rec}</li>`).join('')}</ul>`;
+                }
+            })()
             : `<p style="font-size: 14px; color: #64748b; font-style: italic; margin: 0;">No specific recommendations generated.</p>`;
 
         // Individual report button (only if this specific report has a URL)
@@ -714,7 +760,7 @@ export const generateCombinedEmailBodyHTML = (insights: any[], recipientName?: s
 
         return `
             <div style="${index > 0 ? styles.reportSeparator : ''}">
-                <h2 style="${styles.reportHeader}">Report ${index + 1}: ${company_name}</h2>
+                <h2 style="${styles.reportHeader}">Report ${index + 1}: ${report_metadata.customer_name || company_name}</h2>
                 <p style="${styles.reportMeta}">
                     Period: ${report_metadata.reporting_period_start} to ${report_metadata.reporting_period_end}
                 </p>

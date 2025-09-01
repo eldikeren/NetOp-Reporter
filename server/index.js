@@ -129,6 +129,340 @@ function normalize(analysis) {
   };
 }
 
+// Generate AI-powered executive summary
+async function generateExecutiveSummary(categories, fileName, businessHoursText) {
+  try {
+    // Extract key data points for the AI prompt
+    const wifiIssues = categories.find(cat => 
+      cat.category_name.toLowerCase().includes('wi-fi') || cat.category_name.toLowerCase().includes('wifi')
+    );
+    
+    const clientIssues = categories.find(cat => 
+      cat.category_name.toLowerCase().includes('connected client') || cat.category_name.toLowerCase().includes('client')
+    );
+    
+    const interfaceIssues = categories.find(cat => 
+      cat.category_name.toLowerCase().includes('interface down') || cat.category_name.toLowerCase().includes('interface')
+    );
+    
+    // Find highest impact examples
+    let wifiExample = '';
+    let clientExample = '';
+    let interfaceExample = '';
+    
+    if (wifiIssues && wifiIssues.findings?.length > 0) {
+      const highestErrorFinding = wifiIssues.findings.reduce((max, finding) => {
+        const errorCount = finding.error_count || 0;
+        const maxErrorCount = max.error_count || 0;
+        return errorCount > maxErrorCount ? finding : max;
+      });
+      
+      if (highestErrorFinding && highestErrorFinding.error_count) {
+        wifiExample = `${highestErrorFinding.site_name} ${highestErrorFinding.device_name || ''} generated ${highestErrorFinding.error_count.toLocaleString()} ${highestErrorFinding.error_type || 'Wi-Fi'} errors affecting ${highestErrorFinding.impacted_clients || 'multiple'} clients`;
+      }
+    }
+    
+    if (clientIssues && clientIssues.findings?.length > 0) {
+      const significantDeviation = clientIssues.findings.find(finding => {
+        const deviationMatch = finding.summary_line.match(/(-?\d+)%/);
+        return deviationMatch && Math.abs(parseInt(deviationMatch[1])) >= 20;
+      });
+      
+      if (significantDeviation) {
+        const deviationMatch = significantDeviation.summary_line.match(/(-?\d+)%/);
+        const percentage = deviationMatch[1];
+        clientExample = `${significantDeviation.site_name} client connectivity ${percentage.startsWith('-') ? 'dropped by' : 'increased by'} ${Math.abs(parseInt(percentage))}%`;
+      }
+    }
+    
+    if (interfaceIssues && interfaceIssues.findings?.length > 0) {
+      const recurringInterface = interfaceIssues.findings.find(finding => 
+        finding.total_occurrences > 1
+      );
+      
+      if (recurringInterface) {
+        interfaceExample = `${recurringInterface.site_name} experienced ${recurringInterface.total_occurrences} interface down events`;
+      }
+    }
+    
+    const prompt = `Generate an executive summary introduction for this network report. The introduction must:
+
+TONE & STYLE:
+- Be professional, clear, and humanized (no humor, no marketing fluff)
+- Emphasize root cause over symptoms, and NetOp's role in providing meaningful insights for proactive action
+- Avoid sounding templated — each intro should be unique in wording and structure
+
+CONTENT REQUIREMENTS:
+- Mention that the goal is to highlight what matters most and filter out noise
+- Include at least two real examples from this report's data:
+  ${wifiExample ? `- Wi-Fi example: ${wifiExample}` : ''}
+  ${clientExample ? `- Client connectivity example: ${clientExample}` : ''}
+  ${interfaceExample ? `- Interface example: ${interfaceExample}` : ''}
+- Frame the examples as evidence of underlying causes, not just raw stats
+
+VARIABILITY:
+- Change the phrasing and sentence order each time
+- Vary between slightly more formal and slightly more conversational, but always professional
+- Never reuse the same opening line (e.g., don't always start with "This report highlights…")
+
+REPORT CONTEXT:
+- File: ${fileName}
+- Business hours impact: ${businessHoursText}
+- Total categories analyzed: ${categories.length}
+
+Generate a unique, professional executive summary that incorporates the available examples and emphasizes NetOp's value in surfacing actionable insights.`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: "You are a network infrastructure analyst expert. Generate professional, unique executive summaries that highlight the most important network insights and emphasize proactive action."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      max_tokens: 300,
+      temperature: 0.7
+    });
+
+    const responseText = completion.choices[0]?.message?.content || '';
+    
+    if (!responseText) {
+      // Fallback to basic summary if AI generation fails
+      return `Analysis of ${fileName} revealed ${categories.length} network areas requiring attention. ${businessHoursText}`;
+    }
+    
+    return responseText.trim();
+    
+  } catch (error) {
+    console.error('❌ Executive summary generation error:', error.message);
+    // Fallback to basic summary
+    return `Analysis of ${fileName} revealed ${categories.length} network areas requiring attention. ${businessHoursText}`;
+  }
+}
+    categories: Array.isArray(analysis.categories) ? analysis.categories.map(category => {
+      // Ensure each category has exactly 3 events
+      if (category.findings && Array.isArray(category.findings)) {
+        // Take the first 3 events and ensure they have business_hours_impact flag
+        const limitedFindings = category.findings.slice(0, 3).map(finding => ({
+          ...finding,
+          business_hours_impact: finding.business_hours_impact || false
+        }));
+        return { ...category, findings: limitedFindings };
+      }
+      return category;
+    }) : [],
+    recommendations: Array.isArray(analysis.recommendations) ? analysis.recommendations : [],
+    business_hours_analysis: {
+      peak_incident_hours: analysis.business_hours_analysis?.peak_incident_hours || "09:00-17:00",
+      no_change_window: analysis.business_hours_analysis?.no_change_window || "02:00-04:00",
+      backup_window: analysis.business_hours_analysis?.backup_window || "01:00-03:00",
+      business_hours_events: analysis.business_hours_analysis?.business_hours_events || [],
+      business_impact_summary: analysis.business_hours_analysis?.business_impact_summary || []
+    },
+    enhanced_insights: {
+      timezone_analysis: analysis.enhanced_insights?.timezone_analysis || "Timezone analysis",
+      maintenance_recommendations: analysis.enhanced_insights?.maintenance_recommendations || "Maintenance recommendations",
+      peak_hours_analysis: analysis.enhanced_insights?.peak_hours_analysis || "Peak hours analysis",
+      business_impact_assessment: analysis.enhanced_insights?.business_impact_assessment || "Business impact assessment",
+      root_cause_patterns: analysis.enhanced_insights?.root_cause_patterns || "Root cause patterns"
+    }
+  };
+}
+
+// Generate AI-powered executive summary
+async function generateExecutiveSummary(categories, fileName, businessHoursText) {
+  try {
+    // Extract key data points for the AI prompt
+    const wifiIssues = categories.find(cat => 
+      cat.category_name.toLowerCase().includes('wi-fi') || cat.category_name.toLowerCase().includes('wifi')
+    );
+    
+    const clientIssues = categories.find(cat => 
+      cat.category_name.toLowerCase().includes('connected client') || cat.category_name.toLowerCase().includes('client')
+    );
+    
+    const interfaceIssues = categories.find(cat => 
+      cat.category_name.toLowerCase().includes('interface down') || cat.category_name.toLowerCase().includes('interface')
+    );
+    
+    // Find highest impact examples
+    let wifiExample = '';
+    let clientExample = '';
+    let interfaceExample = '';
+    
+    if (wifiIssues && wifiIssues.findings?.length > 0) {
+      const highestErrorFinding = wifiIssues.findings.reduce((max, finding) => {
+        const errorCount = finding.error_count || 0;
+        const maxErrorCount = max.error_count || 0;
+        return errorCount > maxErrorCount ? finding : max;
+      });
+      
+      if (highestErrorFinding && highestErrorFinding.error_count) {
+        wifiExample = `${highestErrorFinding.site_name} ${highestErrorFinding.device_name || ''} generated ${highestErrorFinding.error_count.toLocaleString()} ${highestErrorFinding.error_type || 'Wi-Fi'} errors affecting ${highestErrorFinding.impacted_clients || 'multiple'} clients`;
+      }
+    }
+    
+    if (clientIssues && clientIssues.findings?.length > 0) {
+      const significantDeviation = clientIssues.findings.find(finding => {
+        const deviationMatch = finding.summary_line.match(/(-?\d+)%/);
+        return deviationMatch && Math.abs(parseInt(deviationMatch[1])) >= 20;
+      });
+      
+      if (significantDeviation) {
+        const deviationMatch = significantDeviation.summary_line.match(/(-?\d+)%/);
+        const percentage = deviationMatch[1];
+        clientExample = `${significantDeviation.site_name} client connectivity ${percentage.startsWith('-') ? 'dropped by' : 'increased by'} ${Math.abs(parseInt(percentage))}%`;
+      }
+    }
+    
+    if (interfaceIssues && interfaceIssues.findings?.length > 0) {
+      const recurringInterface = interfaceIssues.findings.find(finding => 
+        finding.total_occurrences > 1
+      );
+      
+      if (recurringInterface) {
+        interfaceExample = `${recurringInterface.site_name} experienced ${recurringInterface.total_occurrences} interface down events`;
+      }
+    }
+    
+    const prompt = `Generate an executive summary introduction for this network report. The introduction must:
+
+TONE & STYLE:
+- Be professional, clear, and humanized (no humor, no marketing fluff)
+- Emphasize root cause over symptoms, and NetOp's role in providing meaningful insights for proactive action
+- Avoid sounding templated — each intro should be unique in wording and structure
+
+CONTENT REQUIREMENTS:
+- Mention that the goal is to highlight what matters most and filter out noise
+- Include at least two real examples from this report's data:
+  ${wifiExample ? `- Wi-Fi example: ${wifiExample}` : ''}
+  ${clientExample ? `- Client connectivity example: ${clientExample}` : ''}
+  ${interfaceExample ? `- Interface example: ${interfaceExample}` : ''}
+- Frame the examples as evidence of underlying causes, not just raw stats
+
+VARIABILITY:
+- Change the phrasing and sentence order each time
+- Vary between slightly more formal and slightly more conversational, but always professional
+- Never reuse the same opening line (e.g., don't always start with "This report highlights…")
+
+REPORT CONTEXT:
+- File: ${fileName}
+- Business hours impact: ${businessHoursText}
+- Total categories analyzed: ${categories.length}
+
+Generate a unique, professional executive summary that incorporates the available examples and emphasizes NetOp's value in surfacing actionable insights.`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: "You are a network infrastructure analyst expert. Generate professional, unique executive summaries that highlight the most important network insights and emphasize proactive action."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      max_tokens: 300,
+      temperature: 0.7
+    });
+
+    const responseText = completion.choices[0]?.message?.content || '';
+    
+    if (!responseText) {
+      // Fallback to basic summary if AI generation fails
+      return `Analysis of ${fileName} revealed ${categories.length} network areas requiring attention. ${businessHoursText}`;
+    }
+    
+    return responseText.trim();
+    
+  } catch (error) {
+    console.error('❌ Executive summary generation error:', error.message);
+    // Fallback to basic summary
+    return `Analysis of ${fileName} revealed ${categories.length} network areas requiring attention. ${businessHoursText}`;
+  }
+}
+
+// Generate report title and date range from filename
+function generateReportTitle(fileName) {
+  try {
+    // Remove file extension
+    const nameWithoutExt = fileName.replace(/\.(pdf|txt)$/i, '');
+    
+    // Remove numbers in parentheses like (7), (3), etc.
+    const nameWithoutNumbers = nameWithoutExt.replace(/\s*\(\d+\)\s*$/, '');
+    
+    // Extract customer name - take everything before the first underscore or dash
+    let customerName = nameWithoutNumbers;
+    const separatorMatch = nameWithoutNumbers.match(/^([^_-]+)/);
+    if (separatorMatch) {
+      customerName = separatorMatch[1];
+    }
+    
+    // Clean up customer name - remove common suffixes
+    customerName = customerName
+      .replace(/_short_executive_report$/i, '')
+      .replace(/_executive_report$/i, '')
+      .replace(/_report$/i, '')
+      .replace(/_short$/i, '')
+      .trim();
+    
+    // Generate date range (past 7 days from today)
+    const today = new Date();
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 7);
+    
+    const formatDate = (date) => {
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${month}/${day}/${year}`;
+    };
+    
+    const dateRange = {
+      start: formatDate(sevenDaysAgo),
+      end: formatDate(today)
+    };
+    
+    // Generate report title
+    const reportTitle = `${customerName} - Network Analysis Report (${dateRange.start} to ${dateRange.end})`;
+    
+    return {
+      customerName,
+      reportTitle,
+      dateRange
+    };
+    
+  } catch (error) {
+    console.error('❌ Report title generation error:', error.message);
+    // Fallback values
+    const today = new Date();
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 7);
+    
+    const formatDate = (date) => {
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${month}/${day}/${year}`;
+    };
+    
+    return {
+      customerName: 'Customer',
+      reportTitle: `Customer - Network Analysis Report (${formatDate(sevenDaysAgo)} to ${formatDate(today)})`,
+      dateRange: {
+        start: formatDate(sevenDaysAgo),
+        end: formatDate(today)
+      }
+    };
+  }
+}
+
 // Configure multer with better validation
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -860,85 +1194,150 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
           `${businessHoursPercentage}% of time-stamped events occurred during business impact hours, indicating significant operational impact.` :
           'No timestamped events found for business hours analysis.';
         
-        const executiveSummary = `Analysis of ${fileName} revealed ${combinedCategories.length} critical network areas requiring attention. 
-        Found ${totalMajorIssues} major issues and ${totalMinorIssues} minor issues across the infrastructure. 
-        ${totalWorseningTrends} categories show worsening trends, with ${topCategory.category_name} being the most affected area. 
-        ${businessHoursText}`;
+        // Generate AI-powered executive summary
+        const executiveSummary = await generateExecutiveSummary(combinedCategories, fileName, businessHoursText);
+
+        // Generate report title and date range
+        const { customerName, reportTitle, dateRange } = generateReportTitle(fileName);
 
         const result = {
           report_metadata: {
-            reporting_period_start: '08/03/2025',
-            reporting_period_end: '08/30/2025',
+            customer_name: customerName,
+            report_title: reportTitle,
+            reporting_period_start: dateRange.start,
+            reporting_period_end: dateRange.end,
             humanized_intro: executiveSummary,
             customer_timezone: timezone
           },
         categories: combinedCategories,
-                  // Generate specific recommendations based on actual findings
+                  // Generate recommendations using the new 3-section framework
           recommendations: (() => {
-            const recs = [];
+            const stabilityEnhancements = [];
+            const capacityResilience = [];
+            const observabilityOptimization = [];
             
-            // Interface down issues
-            const interfaceIssues = combinedCategories.find(cat => cat.category_name.toLowerCase().includes('interface'));
-            if (interfaceIssues && interfaceIssues.findings?.length > 0) {
-              const criticalCount = interfaceIssues.findings.filter(f => f.severity === 'critical_issue').length;
-              const majorCount = interfaceIssues.findings.filter(f => f.severity === 'major_issue').length;
-              const sites = [...new Set(interfaceIssues.findings.map(f => f.site_name))];
+            // Step 1: Detect categories with worsening or stable trends
+            const categoriesWithIssues = combinedCategories.filter(cat => 
+              cat.findings?.some(f => f.trend === 'worsening_trend' || f.trend === 'stable_trend')
+            );
+            
+            // Step 2: Map categories to sections
+            categoriesWithIssues.forEach(category => {
+              const categoryName = category.category_name.toLowerCase();
+              const findings = category.findings || [];
               
-              if (criticalCount > 0) {
-                recs.push(`Consider proactive hardware refresh for ${criticalCount} critical interface failures at ${sites.slice(0, 3).join(', ')}${sites.length > 3 ? ' and others' : ''}`);
+              // Stability Enhancements
+              if (categoryName.includes('interface down') || categoryName.includes('interface')) {
+                const recurringIssues = findings.filter(f => f.total_occurrences > 1);
+                if (recurringIssues.length > 0) {
+                  stabilityEnhancements.push(
+                    `Certain sites show recurring interface down events with consistent duration. Reviewing physical link health, configuration consistency, and redundancy options could help strengthen stability.`
+                  );
+                }
               }
-              if (majorCount > 0) {
-                recs.push(`Review interface configurations and explore software-defined networking options for better redundancy`);
+              
+              if (categoryName.includes('wi-fi') || categoryName.includes('wifi')) {
+                const authIssues = findings.filter(f => 
+                  f.error_type && (f.error_type.toLowerCase().includes('authentication') || f.error_type.toLowerCase().includes('association'))
+                );
+                if (authIssues.length > 0) {
+                  stabilityEnhancements.push(
+                    `Wi-Fi authentication and association issues may be affecting user experience at several locations. Reviewing access point configurations and client compatibility could help improve connectivity reliability.`
+                  );
+                }
               }
+              
+              if (categoryName.includes('port error')) {
+                const highErrorRates = findings.filter(f => 
+                  f.error_rate_percentage && f.error_rate_percentage > 5
+                );
+                if (highErrorRates.length > 0) {
+                  stabilityEnhancements.push(
+                    `Port error rates at some locations may indicate areas where reviewing physical connections, cable quality, and interface configurations could help reduce packet loss and improve network stability.`
+                  );
+                }
+              }
+              
+              // Capacity & Resilience
+              if (categoryName.includes('connected client') || categoryName.includes('client')) {
+                const highPeaks = findings.filter(f => 
+                  f.summary_line && f.summary_line.toLowerCase().includes('peak') || 
+                  f.summary_line && f.summary_line.toLowerCase().includes('high')
+                );
+                if (highPeaks.length > 0) {
+                  capacityResilience.push(
+                    `High client peaks at several locations may indicate areas where optimizing access point density, spectrum planning, or load distribution could improve user experience and resilience during busy periods.`
+                  );
+                }
+              }
+              
+              if (categoryName.includes('wan') || categoryName.includes('utilization')) {
+                const highUtilization = findings.filter(f => 
+                  f.summary_line && f.summary_line.toLowerCase().includes('utilization') ||
+                  f.summary_line && f.summary_line.toLowerCase().includes('congestion')
+                );
+                if (highUtilization.length > 0) {
+                  capacityResilience.push(
+                    `Network utilization patterns show opportunities where traffic optimization, bandwidth management, or capacity planning could help prepare for future demand and improve overall network resilience.`
+                  );
+                }
+              }
+              
+              // Observability & Optimization
+              const missingTimestamps = findings.filter(f => !f.last_occurrence || !/\d{1,2}:\d{2}/.test(f.last_occurrence));
+              if (missingTimestamps.length > 0) {
+                observabilityOptimization.push(
+                  `A number of events lacked precise timestamps, which may limit business-hours impact analysis. Strengthening time synchronization and monitoring coverage could improve long-term insights and reporting accuracy.`
+                );
+              }
+              
+              const inconsistentMetrics = findings.filter(f => 
+                !f.avg_duration_minutes || !f.total_occurrences || f.avg_duration_minutes === 0
+              );
+              if (inconsistentMetrics.length > 0) {
+                observabilityOptimization.push(
+                  `Some events show incomplete metrics, which may limit trend analysis and capacity planning. Enhancing monitoring granularity and data collection consistency could provide better visibility for long-term optimization.`
+                );
+              }
+            });
+            
+            // Step 3: Generate final recommendations with soft advisory language
+            const recommendations = [];
+            
+            if (stabilityEnhancements.length > 0) {
+              recommendations.push({
+                section: "Stability Enhancements",
+                items: stabilityEnhancements
+              });
             }
             
-            // VPN tunnel issues
-            const vpnIssues = combinedCategories.find(cat => cat.category_name.toLowerCase().includes('vpn'));
-            if (vpnIssues && vpnIssues.findings?.length > 0) {
-              const sites = [...new Set(vpnIssues.findings.map(f => f.site_name))];
-              const businessHoursCount = vpnIssues.findings.filter(f => f.business_hours_impact === 'YES').length;
-              recs.push(`VPN optimization needed: ${vpnIssues.findings.length} tunnel issues affecting ${sites.slice(0, 3).join(', ')}${sites.length > 3 ? ' and others' : ''} (${businessHoursCount} during business hours)`);
-              recs.push(`Explore SD-WAN solutions for more resilient connectivity and automatic failover`);
+            if (capacityResilience.length > 0) {
+              recommendations.push({
+                section: "Capacity & Resilience", 
+                items: capacityResilience
+              });
             }
             
-            // WAN utilization issues
-            const wanIssues = combinedCategories.find(cat => cat.category_name.toLowerCase().includes('wan'));
-            if (wanIssues && wanIssues.findings?.length > 0) {
-              const sites = [...new Set(wanIssues.findings.map(f => f.site_name))];
-              recs.push(`WAN capacity planning: ${wanIssues.findings.length} links at ${sites.slice(0, 3).join(', ')}${sites.length > 3 ? ' and others' : ''} showing high utilization`);
-              recs.push(`Consider traffic optimization techniques like compression and intelligent routing to maximize existing bandwidth`);
-            }
-            
-            // Service performance issues
-            const serviceIssues = combinedCategories.find(cat => cat.category_name.toLowerCase().includes('service'));
-            if (serviceIssues && serviceIssues.findings?.length > 0) {
-              const businessHoursCount = serviceIssues.findings.filter(f => f.business_hours_impact === 'YES').length;
-              recs.push(`Service performance review: ${serviceIssues.findings.length} incidents detected (${businessHoursCount} during business hours)`);
-              recs.push(`Implement application-aware networking and consider edge computing solutions for improved performance`);
-            }
-            
-            // Wi-Fi issues
-            const wifiIssues = combinedCategories.find(cat => cat.category_name.toLowerCase().includes('wifi') || cat.category_name.toLowerCase().includes('wlan'));
-            if (wifiIssues && wifiIssues.findings?.length > 0) {
-              const sites = [...new Set(wifiIssues.findings.map(f => f.site_name))];
-              recs.push(`Wi-Fi optimization: ${wifiIssues.findings.length} connectivity issues at ${sites.slice(0, 3).join(', ')}${sites.length > 3 ? ' and others' : ''}`);
-              recs.push(`Consider AI-powered Wi-Fi management and mesh networking for better coverage and reliability`);
-            }
-            
-            // Business impact
-            if (businessHoursPercentage > 30) {
-              recs.push(`Business impact focus: ${businessHoursEvents} events (${businessHoursPercentage}%) occurred during business impact hours`);
-              recs.push(`Implement predictive analytics and automated response systems to minimize operational disruption`);
+            if (observabilityOptimization.length > 0) {
+              recommendations.push({
+                section: "Observability & Optimization",
+                items: observabilityOptimization
+              });
             }
             
             // Default recommendations if no specific issues found
-            if (recs.length === 0) {
-              recs.push('Review network infrastructure configurations for optimization opportunities');
-              recs.push('Consider implementing AI-driven network monitoring for proactive issue detection');
-              recs.push('Explore cloud-native networking solutions for improved scalability and reliability');
+            if (recommendations.length === 0) {
+              recommendations.push({
+                section: "General Network Optimization",
+                items: [
+                  "Reviewing network infrastructure configurations may reveal optimization opportunities for improved performance and reliability.",
+                  "Consider implementing enhanced monitoring practices to provide better visibility into network health and trends.",
+                  "Exploring modern networking solutions could help prepare for future growth and changing requirements."
+                ]
+              });
             }
             
-            return recs;
+            return recommendations;
           })(),
         business_hours_analysis: businessHoursAnalysis,
         enhanced_insights: null
