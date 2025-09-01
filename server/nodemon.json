@@ -1,13 +1,25 @@
 {
-  "watch": ["*.js", "*.json"],
-  "ignore": [
-    "node_modules/",
-    "cache/",
-    "uploads/",
-    "*.cache",
-    "*.log"
-  ],
+  "watch": ["server"],
   "ext": "js,json",
+  "ignore": [
+    "cache/**",
+    "uploads/**",
+    "reports/**",
+    "public/**",
+    "tmp/**",
+    "*.pdf",
+    "*.csv",
+    ".env",
+    "node_modules/**",
+    "client/**",
+    "test-*.js",
+    "debug-*.js",
+    "*.cache",
+    "*.log",
+    "iataCache.json",
+    "airports.csv"
+  ],
+  "delay": "200ms",
   "env": {
     "NODE_ENV": "development"
   }

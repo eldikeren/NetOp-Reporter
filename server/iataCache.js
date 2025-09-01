@@ -52,10 +52,24 @@ class SimpleCache {
 
   async set(key, value) {
     this.cache.set(key, value);
-    await this.saveCache();
+    // Debounce cache saves to avoid frequent file writes
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+    this.saveTimeout = setTimeout(() => {
+      this.saveCache().catch(err => console.error('Cache save error:', err));
+    }, 1000); // Save after 1 second of inactivity
   }
 }
 
 const iataCache = new SimpleCache();
+
+// Ensure cache is saved on process exit
+process.on('beforeExit', async () => {
+  if (iataCache.saveTimeout) {
+    clearTimeout(iataCache.saveTimeout);
+  }
+  await iataCache.saveCache();
+});
 
 module.exports = { iataCache };
