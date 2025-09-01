@@ -11,6 +11,8 @@ const CITY_TIMEZONE_MAP = {
   'chicago': 'America/Chicago',
   'toronto': 'America/Toronto',
   'vancouver': 'America/Vancouver',
+  'edmonton': 'America/Edmonton',
+  'calgary': 'America/Edmonton',
   'mexico city': 'America/Mexico_City',
   'sao paulo': 'America/Sao_Paulo',
   'buenos aires': 'America/Argentina/Buenos_Aires',
@@ -44,14 +46,17 @@ function extractCityFromSiteName(siteName) {
   if (!siteName) return null;
   
   const normalizedSite = siteName.toLowerCase();
+  console.log(`🔍 Checking site name: "${siteName}" (normalized: "${normalizedSite}")`);
   
   // Find matching city in the timezone map
   for (const [city, timezone] of Object.entries(CITY_TIMEZONE_MAP)) {
     if (normalizedSite.includes(city)) {
+      console.log(`✅ Found city match: "${city}" with timezone "${timezone}" for site "${siteName}"`);
       return { city: city, timezone: timezone };
     }
   }
   
+  console.log(`❌ No city match found for site "${siteName}"`);
   return null;
 }
 
@@ -88,11 +93,16 @@ function processAviSplEvents(events) {
         const isBusinessHours = isBusinessHoursAviSpl(event.last_occurrence, cityInfo.timezone);
         event.business_hours_impact = isBusinessHours ? 'YES' : 'NO';
         
-        // Add local time string
+        // Add local time string and update last_occurrence
         try {
+          console.log(`🕐 Converting UTC time "${event.last_occurrence}" to ${cityInfo.timezone} for ${cityInfo.city}`);
           const localTime = DateTime.fromISO(event.last_occurrence, { zone: 'utc' }).setZone(cityInfo.timezone);
+          const originalTime = event.last_occurrence;
           event.local_time = localTime.toFormat('MM/dd/yyyy HH:mm');
           event.local_timezone_name = localTime.zoneName;
+          // Update last_occurrence to show local time for display
+          event.last_occurrence = localTime.toFormat('MM/dd/yyyy HH:mm');
+          console.log(`✅ Time converted: ${originalTime} UTC → ${event.last_occurrence} ${cityInfo.timezone}`);
         } catch (error) {
           console.error('Error formatting local time:', error);
         }

@@ -527,7 +527,9 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
         });
       }
       
-      // Apply AVI-SPL processing if detected
+      combinedCategories.push(...categoryMap.values());
+      
+      // Apply AVI-SPL processing if detected (BEFORE summary line generation)
       if (isAviSpl) {
         const { processAviSplEvents } = require('./avisplHandler');
         combinedCategories.forEach(category => {
@@ -537,13 +539,17 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
         });
       }
       
-      combinedCategories.push(...categoryMap.values());
-      
       // Create business hours analysis
       const totalEvents = combinedCategories.reduce((sum, cat) => sum + cat.findings.length, 0);
       
       // Count ALL events from the original analysis, not just the 3 shown per category
-      const allEventsFromChunks = allCategories.flatMap(cat => cat.findings || []);
+      let allEventsFromChunks = allCategories.flatMap(cat => cat.findings || []);
+      
+      // Apply AVI-SPL processing to all events if detected
+      if (isAviSpl) {
+        const { processAviSplEvents } = require('./avisplHandler');
+        allEventsFromChunks = processAviSplEvents(allEventsFromChunks);
+      }
       // For Signature Aviation, count ALL events with timestamps (should be much higher than 19)
       const timestampedEvents = allEventsFromChunks.filter(event => event.last_occurrence && event.last_occurrence.includes(':'));
       const totalAllEvents = isSignatureAviation ? timestampedEvents.length : allEventsFromChunks.length;
