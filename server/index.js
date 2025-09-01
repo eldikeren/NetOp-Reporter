@@ -342,11 +342,16 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
     
     console.log(`📊 Extracted ${pdfText.length} characters from PDF`);
     
-    // Detect if this is a Signature Aviation report
-    const isSignatureAviation = fileName.toLowerCase().includes('signature') || 
+        // Detect report type
+    const isSignatureAviation = fileName.toLowerCase().includes('signature') ||
                                 fileName.toLowerCase().includes('aviation') ||
                                 pdfText.toLowerCase().includes('signature aviation') ||
                                 pdfText.toLowerCase().includes('sfs-');
+    
+    const isAviSpl = fileName.toLowerCase().includes('avi-spl') ||
+                     fileName.toLowerCase().includes('avispl') ||
+                     pdfText.toLowerCase().includes('avi-spl') ||
+                     pdfText.toLowerCase().includes('avispl');
     
     if (isSignatureAviation) {
       console.log('🛫 Detected Signature Aviation report - applying special analysis');
@@ -374,8 +379,12 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
       }
       
       // Store the city map for later use
-      global.signatureAviationCities = iataCityMap;
-    }
+              global.signatureAviationCities = iataCityMap;
+      }
+      
+      if (isAviSpl) {
+        console.log('🌍 Detected AVI-SPL report - applying multi-global location analysis');
+      }
     
     // Handle large PDFs by chunking them
     const maxChars = 12000; // Conservative limit per chunk
@@ -461,6 +470,11 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
             const clientCount = finding.impacted_clients || 0;
             parts.push(`experienced ${errorType} errors (${errorCount} errors affecting ${clientCount} clients)`);
             
+            // Ensure error count is displayed in the summary
+            if (errorCount > 0) {
+              finding.error_count = errorCount;
+            }
+            
             // Add geo location for Wi-Fi events
             if (finding.geo_location) {
               parts.push(`at ${finding.geo_location}`);
@@ -484,7 +498,12 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
             parts.push(`experienced ${categoryName.toLowerCase()}`);
           }
           
-          if (finding.total_occurrences) parts.push(`(${finding.total_occurrences} occurrences`);
+          // Add occurrences only for non-WiFi and non-Port Error events
+          if (!categoryName.toLowerCase().includes('wifi') && 
+              !categoryName.toLowerCase().includes('port error') && 
+              finding.total_occurrences) {
+            parts.push(`(${finding.total_occurrences} occurrences`);
+          }
           if (finding.avg_duration_minutes) parts.push(`${finding.avg_duration_minutes}min avg duration`);
           parts.push(')');
           
@@ -508,6 +527,16 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
         });
       }
       
+      // Apply AVI-SPL processing if detected
+      if (isAviSpl) {
+        const { processAviSplEvents } = require('./avisplHandler');
+        combinedCategories.forEach(category => {
+          if (category.findings) {
+            category.findings = processAviSplEvents(category.findings);
+          }
+        });
+      }
+      
       combinedCategories.push(...categoryMap.values());
       
       // Create business hours analysis
@@ -515,7 +544,11 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
       
       // Count ALL events from the original analysis, not just the 3 shown per category
       const allEventsFromChunks = allCategories.flatMap(cat => cat.findings || []);
-      const totalAllEvents = allEventsFromChunks.length;
+      // For Signature Aviation, count ALL events with timestamps (should be much higher than 19)
+      const timestampedEvents = allEventsFromChunks.filter(event => event.last_occurrence && event.last_occurrence.includes(':'));
+      const totalAllEvents = isSignatureAviation ? timestampedEvents.length : allEventsFromChunks.length;
+      
+      console.log(`📊 Total events found: ${allEventsFromChunks.length}, Timestamped events: ${timestampedEvents.length}, Using: ${totalAllEvents}`);
       
       // Count events that actually have business_hours_impact = "YES" from ALL events
       const businessHoursEvents = allEventsFromChunks.filter(f => f.business_hours_impact === "YES").length;
@@ -546,12 +579,37 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
       };
       
       if (isSignatureAviation) {
-        businessHoursAnalysis.signature_aviation_note = "**NetOp automatically extracts the IATA code from the site name to deliver business-impacting insights, and each site is evaluated according to its own local time zone.**";
+        businessHoursAnalysis.signature_aviation_note = "**NetOp automatically extracts the IATA code from the site name to deliver business-impacting insights, and each site is evaluated according to its own local time zone. We understand that airports work usually 24/7, but this analysis focuses on standard business hours impact.**";
+        
+        // Generate Signature Aviation KPI dashboard
+        const { generateSignatureAviationReport } = require('./signatureKPI');
+        const mockAirports = [...global.signatureAviationCities || new Map()].map(([iata, city]) => ({
+          iata,
+          city,
+          name: `${iata} Airport`,
+          country: 'Unknown',
+          continent: 'Unknown',
+          tz: 'UTC'
+        }));
+        
+        const signatureReport = generateSignatureAviationReport(allEventsFromChunks, mockAirports);
+        
         businessHoursAnalysis.signature_dashboard = {
           title: "Signature Aviation - Airport Analysis",
-          airports_identified: 0, // Will be populated by Signature Aviation analysis
-          events_during_business_hours: businessHoursEvents
+          airports_identified: signatureReport.kpis.total_airports_with_issues,
+          events_during_business_hours: businessHoursEvents,
+          dashboard_table: signatureReport.dashboard_table,
+          narrative: signatureReport.narrative,
+          charts: signatureReport.charts
         };
+      }
+      
+      if (isAviSpl) {
+        const { generateAviSplBusinessAnalysis } = require('./avisplHandler');
+        const aviSplAnalysis = generateAviSplBusinessAnalysis(allEventsFromChunks);
+        
+        businessHoursAnalysis.avispl_note = "**Multi-global location analysis: NetOp automatically detects city names from site names and converts UTC timestamps to local time zones for accurate business hours impact assessment.**";
+        businessHoursAnalysis.avispl_analysis = aviSplAnalysis;
       }
       
               // Generate meaningful executive summary based on actual findings
@@ -577,7 +635,7 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
             humanized_intro: executiveSummary,
             customer_timezone: timezone
           },
-        categories: combinedCategories,
+          categories: combinedCategories,
                   // Generate specific recommendations based on actual findings
           recommendations: (() => {
             const recs = [];
@@ -648,6 +706,11 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
         business_hours_analysis: businessHoursAnalysis,
         enhanced_insights: null
       };
+      
+      // Add Signature Aviation dashboard to result if detected
+      if (isSignatureAviation && businessHoursAnalysis.signature_dashboard) {
+        result.signature_aviation_dashboard = businessHoursAnalysis.signature_dashboard;
+      }
       
       console.log(`✅ Chunked analysis completed successfully!`);
       console.log(`📊 Extracted ${combinedCategories.length} categories with ${totalEvents} total findings`);
