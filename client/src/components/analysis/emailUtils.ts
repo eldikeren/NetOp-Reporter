@@ -455,6 +455,12 @@ export const generateEmailBodyHTML = (insight: any, fullReportUrl?: string, reci
                                         <strong>Important:</strong> This analysis focuses on events with explicit time stamps and might not include all network events.
                                     </p>
                                     
+                                    ${analysis_result.business_hours_analysis.signature_aviation_note ? `
+                                    <p style="color: #dc2626; font-size: 14px; margin-bottom: 16px; font-weight: bold;">
+                                        ${analysis_result.business_hours_analysis.signature_aviation_note}
+                                    </p>
+                                    ` : ''}
+                                    
                                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
                                         <div style="text-align: center;">
                                             <div style="font-size: 24px; font-weight: bold; color: #dc2626;">

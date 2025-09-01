@@ -60,3 +60,7 @@ yarn.lock
 # Test files that might contain sensitive data
 server/test-*.pdf
 *.pdf
+
+# Cache files
+server/cache/
+cache/

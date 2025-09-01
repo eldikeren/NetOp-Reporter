@@ -1,6 +1,16 @@
 // Load environment variables from .env file
 require('dotenv').config();
 
+// Validate required API keys
+if (!process.env.OPENAI_API_KEY) {
+  console.error('❌ OPENAI_API_KEY is required in .env file');
+  process.exit(1);
+}
+
+if (!process.env.API_NINJAS_KEY) {
+  console.warn('⚠️ API_NINJAS_KEY not found in .env file - IATA timezone conversion will be limited');
+}
+
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
@@ -539,6 +549,16 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
         });
       }
       
+      // Apply Signature Aviation processing if detected (BEFORE summary line generation)
+      if (isSignatureAviation) {
+        const { processSignatureAviationEvents } = require('./signatureAviationHandler');
+        for (const category of combinedCategories) {
+          if (category.findings) {
+            category.findings = await processSignatureAviationEvents(category.findings);
+          }
+        }
+      }
+      
       // Create business hours analysis
       const totalEvents = combinedCategories.reduce((sum, cat) => sum + cat.findings.length, 0);
       
@@ -549,6 +569,12 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
       if (isAviSpl) {
         const { processAviSplEvents } = require('./avisplHandler');
         allEventsFromChunks = processAviSplEvents(allEventsFromChunks);
+      }
+      
+      // Apply Signature Aviation processing to all events if detected
+      if (isSignatureAviation) {
+        const { processSignatureAviationEvents } = require('./signatureAviationHandler');
+        allEventsFromChunks = await processSignatureAviationEvents(allEventsFromChunks);
       }
       // For Signature Aviation, count ALL events with timestamps (should be much higher than 19)
       const timestampedEvents = allEventsFromChunks.filter(event => event.last_occurrence && event.last_occurrence.includes(':'));
@@ -586,9 +612,13 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
       };
       
       if (isSignatureAviation) {
-        businessHoursAnalysis.signature_aviation_note = "**NetOp automatically extracts the IATA code from the site name to deliver business-impacting insights, and each site is evaluated according to its own local time zone. We understand that airports work usually 24/7, but this analysis focuses on standard business hours impact.**";
+        businessHoursAnalysis.signature_aviation_note = "**Note: NetOp has programmatically resolved airport IATA codes to their corresponding city locations and local time zones; all timestamps in this report are presented in local time based on that conversion.**";
         
-        // Generate Signature Aviation KPI dashboard
+        // Generate enhanced Signature Aviation business impact analysis
+        const { generateSignatureAviationBusinessAnalysis } = require('./signatureAviationHandler');
+        const signatureAnalysis = generateSignatureAviationBusinessAnalysis(allEventsFromChunks);
+        
+        // Generate KPI dashboard
         const { generateSignatureAviationReport } = require('./signatureKPI');
         const mockAirports = [...global.signatureAviationCities || new Map()].map(([iata, city]) => ({
           iata,
@@ -603,11 +633,13 @@ async function analyzePDFContent(pdfBuffer, fileName, timezone = 'UTC') {
         
         businessHoursAnalysis.signature_dashboard = {
           title: "Signature Aviation - Airport Analysis",
-          airports_identified: signatureReport.kpis.total_airports_with_issues,
-          events_during_business_impact: businessHoursEvents,
+          airports_identified: signatureAnalysis.airports_analyzed,
+          events_during_business_impact: signatureAnalysis.business_impact_events,
+          events_not_during_business_hours: signatureAnalysis.no_business_hours_events,
           dashboard_table: signatureReport.dashboard_table,
           narrative: signatureReport.narrative,
-          charts: signatureReport.charts
+          charts: signatureReport.charts,
+          enhanced_analysis: signatureAnalysis
         };
       }
       
@@ -877,7 +909,7 @@ IMPORTANT: Extract ALL tables and ALL events. Do not skip any categories or even
     
     // Add Signature Aviation specific content to the normalized analysis
     if (isSignatureAviation) {
-      normalizedAnalysis.business_hours_analysis.signature_aviation_note = "**NetOp automatically extracts the IATA code from the site name to deliver business-impacting insights, and each site is evaluated according to its own local time zone.**";
+              normalizedAnalysis.business_hours_analysis.signature_aviation_note = "**Note: NetOp has programmatically resolved airport IATA codes to their corresponding city locations and local time zones; all timestamps in this report are presented in local time based on that conversion.**";
       normalizedAnalysis.business_hours_analysis.signature_dashboard = {
         title: "Signature Aviation - Airport Analysis",
         airports_identified: 0, // Will be populated by Signature Aviation analysis
