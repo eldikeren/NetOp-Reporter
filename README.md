@@ -57,7 +57,8 @@ NetOp Reporter is an intelligent network infrastructure analysis tool that autom
 - Node.js 16+ 
 - npm or yarn
 - OpenAI API key
-- Napkin.ai API key (optional)
+- Napkin.ai API key
+- Ninja API (For Airport IATA code conversion to geo location)
 
 ### Installation
 
