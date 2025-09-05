@@ -520,7 +520,7 @@ ${slaInstruction}
    - Include in_utilization_percentage, out_utilization_percentage fields
    - Determine trend for In and Out separately (e.g., stable In but increasing Out)
    - DO NOT include last_occurrence for WAN Utilization events
-   - SPECIAL HANDLING: If utilization is over 150%, add comment "Note: Utilization over 150% typically indicates a duplex mismatch or measurement error"
+   - SPECIAL HANDLING: If utilization is over 150%, add comment "Possible misconfigured interface bandwidth limit. Check your dashboard settings"
    - ONLY include WAN Utilization if it actually appears in the PDF content
 
 8. For each event, provide:
@@ -619,7 +619,7 @@ ${slaInstruction}
    - Include in_utilization_percentage, out_utilization_percentage fields
    - Determine trend for In and Out separately (e.g., stable In but increasing Out)
    - DO NOT include last_occurrence for WAN Utilization events
-   - SPECIAL HANDLING: If utilization is over 150%, add comment "Note: Utilization over 150% typically indicates a duplex mismatch or measurement error"
+   - SPECIAL HANDLING: If utilization is over 150%, add comment "Possible misconfigured interface bandwidth limit. Check your dashboard settings"
 
 8. For each event, provide:
    - Site name
@@ -1921,7 +1921,7 @@ CRITICAL INSTRUCTIONS - READ CAREFULLY:
    - Format: "Site [SITE_NAME] device [DEVICE_NAME] interface [INTERFACE_NAME] experienced WAN utilization In: X% Out: Y%"
    - DO NOT include last_occurrence for WAN Utilization events
    - Determine trend for In and Out separately
-   - SPECIAL HANDLING: If utilization is over 150%, add comment "Note: Utilization over 150% typically indicates a duplex mismatch or measurement error"
+   - SPECIAL HANDLING: If utilization is over 150%, add comment "Possible misconfigured interface bandwidth limit. Check your dashboard settings"
 
    **VPN Tunnel Down:**
    - Show most occurred events
