@@ -49,9 +49,6 @@ function convertToLocalTime(utcTimestamp, timezone) {
   if (!utcTimestamp || !timezone) return null;
   
   try {
-
-
-
     // Handle different timestamp formats
     let localTime;
     
@@ -150,11 +147,14 @@ async function processSignatureAviationEvents(events) {
         
         // Update summary line to include airport information
         if (event.summary_line) {
-          const airportDisplay = `${iataInfo.city} (${iataInfo.airport})`;
-          event.summary_line = event.summary_line.replace(
-            event.site_name,
-            `${event.site_name} **(${airportDisplay})**`
-          );
+          // Check if airport info is already added to prevent duplication
+          if (!event.summary_line.includes('**(') && !event.summary_line.includes('Airport:')) {
+            const airportDisplay = `${iataInfo.airport} - ${iataInfo.city}, ${iataInfo.country}`;
+            event.summary_line = event.summary_line.replace(
+              event.site_name,
+              `${event.site_name} **(${airportDisplay})**`
+            );
+          }
         }
       } else {
         console.log(`⚠️ No timezone info found for IATA ${iataCode}`);

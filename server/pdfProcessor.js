@@ -63,7 +63,7 @@ const HEADER_SIGS = [
   { 
     key: 'Port Errors', 
     patterns: ['port errors'],
-    cols: ['site', 'device', 'port', 'errors']
+    cols: ['site', 'device', 'port', 'info', 'trend', 'in (avg/max)', 'out (avg/max)']
   }
 ];
 
@@ -303,19 +303,22 @@ class PDFProcessor {
           const site = parts[0] || 'Unknown Site';
           const device = parts[1] || 'Unknown Device';
           const errorType = parts[2] || 'Unknown Error';
-          const total = this.findInt(parts.slice(-3)) || this.extractInt(parts[parts.length - 2]) || 0;
+          const errorCount = this.findInt(parts.slice(-3)) || this.extractInt(parts[parts.length - 2]) || 0;
           const impacted = this.extractInt(parts[parts.length - 1]) || 0;
           
           return {
-            summary_line: `${site} ${device} had ${total} Wi-Fi issues affecting ${impacted} clients`,
-            severity: impacted > 20 ? 'critical_issue' : impacted > 10 ? 'major_issue' : 'minor_issue',
+            summary_line: `${site} ${device} experienced ${errorType} errors (${errorCount} errors affecting ${impacted} clients)`,
+            severity: errorCount > 100 ? 'major_issue' : errorCount > 50 ? 'minor_issue' : 'minor_issue',
             trend: 'worsening_trend',
             last_occurrence: '08/30/2025',
             avg_duration_minutes: 0,
-            total_occurrences: total,
+            total_occurrences: 1, // Single event entry
             business_hours_impact: 'YES', // Wi-Fi issues typically affect business hours
             site_name: site,
-            device_name: device
+            device_name: device,
+            error_type: errorType,
+            error_count: errorCount,
+            impacted_clients: impacted
           };
         }
         
@@ -340,18 +343,47 @@ class PDFProcessor {
           const site = parts[0] || 'Unknown Site';
           const device = parts[1] || 'Unknown Device';
           const port = parts[2] || 'Unknown Port';
-          const errors = this.extractInt(parts[parts.length - 1]) || 0;
+          const portInfo = parts[3] || 'Unknown Info';
+          const trend = parts[4] || 'stable';
+          
+          // Extract In (Avg/Max) and Out (Avg/Max) percentages
+          const inAvgMax = parts[5] || '0/0';
+          const outAvgMax = parts[6] || '0/0';
+          
+          // Parse the Avg/Max values
+          const inMatch = inAvgMax.match(/(\d+\.?\d*)\s*\/\s*(\d+\.?\d*)/);
+          const outMatch = outAvgMax.match(/(\d+\.?\d*)\s*\/\s*(\d+\.?\d*)/);
+          
+          const inAvg = inMatch ? parseFloat(inMatch[1]) : 0;
+          const inMax = inMatch ? parseFloat(inMatch[2]) : 0;
+          const outAvg = outMatch ? parseFloat(outMatch[1]) : 0;
+          const outMax = outMatch ? parseFloat(outMatch[2]) : 0;
+          
+          // Determine which direction has higher error rate
+          const maxInError = Math.max(inAvg, inMax);
+          const maxOutError = Math.max(outAvg, outMax);
+          const highestErrorRate = Math.max(maxInError, maxOutError);
+          const errorDirection = maxInError > maxOutError ? 'input' : 'output';
           
           return {
-            summary_line: `${site} ${device} port ${port} had ${errors} errors`,
-            severity: errors > 1000 ? 'critical_issue' : errors > 100 ? 'major_issue' : 'minor_issue',
-            trend: 'worsening_trend',
+            summary_line: `${site} ${device} port ${port} experienced ${highestErrorRate.toFixed(2)}% error rate (${errorDirection} traffic)`,
+            severity: highestErrorRate > 5 ? 'major_issue' : highestErrorRate > 1 ? 'minor_issue' : 'minor_issue',
+            trend: trend.includes('increasing') ? 'worsening_trend' : trend.includes('decreasing') ? 'improving_trend' : 'stable_trend',
             last_occurrence: '08/30/2025',
             avg_duration_minutes: 0,
-            total_occurrences: errors,
+            total_occurrences: 1,
             business_hours_impact: 'NO',
             site_name: site,
-            device_name: device
+            device_name: device,
+            port_name: port,
+            port_info: portInfo,
+            error_rate_percentage: highestErrorRate,
+            error_type: 'traffic',
+            input_output_direction: errorDirection,
+            in_avg_error: inAvg,
+            in_max_error: inMax,
+            out_avg_error: outAvg,
+            out_max_error: outMax
           };
         }
         
@@ -443,11 +475,26 @@ class PDFProcessor {
         },
         categories: categories,
         recommendations: [
-          'Review interface configurations to reduce downtime',
-          'Implement proactive monitoring for critical devices',
-          'Plan capacity upgrades for congested WAN links',
-          'Schedule maintenance during low-traffic hours',
-          'Enhance Wi-Fi coverage and monitoring'
+          {
+            section: "Stability Enhancements",
+            items: [
+              "Review interface configurations to reduce downtime",
+              "Implement proactive monitoring for critical devices"
+            ]
+          },
+          {
+            section: "Capacity & Resilience",
+            items: [
+              "Plan capacity upgrades for congested WAN links",
+              "Schedule maintenance during low-traffic hours"
+            ]
+          },
+          {
+            section: "Observability & Optimization",
+            items: [
+              "Enhance Wi-Fi coverage and monitoring"
+            ]
+          }
         ],
         business_hours_analysis: businessHoursAnalysis,
         enhanced_insights: {

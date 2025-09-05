@@ -61,9 +61,25 @@ function convertToLocalTimeAviSpl(utcTimestamp, timezone) {
 function isBusinessHoursAviSpl(localTime, businessWindow = { start: 9, end: 18 }) {
   if (!localTime) return false;
   
-  const isWeekday = localTime.weekday >= 1 && localTime.weekday <= 5;
+  const isWeekday = localTime.weekday >= 1 && localTime.weekday <= 5; // Monday-Friday only
   const hour = localTime.hour + localTime.minute / 60;
-  return isWeekday && hour >= businessWindow.start && hour < businessWindow.end;
+  const isBusinessHours = isWeekday && hour >= businessWindow.start && hour < businessWindow.end;
+  
+  // Enhanced debug logging with more details
+  console.log(`🔍 Business hours check: ${localTime.toFormat('MM/dd/yyyy HH:mm')} - Weekday: ${isWeekday} (${localTime.weekday}), Hour: ${hour.toFixed(2)}, Business hours: ${isBusinessHours ? 'YES' : 'NO'}`);
+  
+  // Additional validation for edge cases
+  if (isBusinessHours) {
+    console.log(`✅ CONFIRMED: ${localTime.toFormat('HH:mm')} is within business hours (${businessWindow.start}:00-${businessWindow.end}:00)`);
+  } else {
+    if (!isWeekday) {
+      console.log(`❌ Outside business hours: Weekend (${localTime.weekday})`);
+    } else {
+      console.log(`❌ Outside business hours: ${localTime.toFormat('HH:mm')} is not between ${businessWindow.start}:00-${businessWindow.end}:00}`);
+    }
+  }
+  
+  return isBusinessHours;
 }
 
 // Process AVI-SPL events with city-based timezone conversion
@@ -98,12 +114,10 @@ function processAviSplEvents(events) {
         }
       }
       
-      // Update summary line to include city name
-      if (event.summary_line) {
-        event.summary_line = event.summary_line.replace(
-          event.site_name,
-          `${event.site_name} **(${cityInfo.city.charAt(0).toUpperCase() + cityInfo.city.slice(1)})**`
-        );
+      // Remove city name from summary line since site name already includes it
+      if (event.summary_line && event.summary_line.includes('**(')) {
+        // Remove existing city name in parentheses
+        event.summary_line = event.summary_line.replace(/\s*\*\*\([^)]+\)\*\*/g, '');
       }
     } else {
       // For events without city match, still set business_hours_impact to 'NO' if they have timestamps
